@@ -1,0 +1,25 @@
+{
+  "name": "reveal-timeline-plugin",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/reveal-timeline-plugin.js",
+  "module": "dist/reveal-timeline-plugin.js",
+  "scripts": {
+    "build": "esbuild src/index.js --bundle --format=esm --outfile=dist/reveal-timeline-plugin.js",
+    "build:iife": "esbuild src/index.js --bundle --format=iife --global-name=RevealTimeline --outfile=dist/reveal-timeline-plugin.iife.js --footer:js=RevealTimeline=RevealTimeline.default;",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest",
+    "dev": "esbuild src/index.js --bundle --format=iife --global-name=RevealTimeline --outfile=dist/reveal-timeline-plugin.iife.js --footer:js=RevealTimeline=RevealTimeline.default; --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0",
+    "jest": "^29.0.0",
+    "@jest/globals": "^29.0.0"
+  },
+  "dependencies": {
+    "@js-temporal/polyfill": "^0.4.4"
+  },
+  "jest": {
+    "transform": {},
+    "testEnvironment": "node"
+  }
+}

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reveal Timeline Plugin Demo</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/theme/black.css" />
+  <style>
+    .legend {
+      position: fixed;
+      bottom: 70px;
+      right: 18px;
+      background: rgba(0,0,0,0.55);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 11px;
+      line-height: 1.6;
+      color: rgba(255,255,255,0.7);
+      text-align: left;
+      max-width: 220px;
+      pointer-events: none;
+      z-index: 200;
+    }
+    .legend strong {
+      color: #4af;
+      display: block;
+      margin-bottom: 2px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .legend code {
+      color: rgba(255,255,255,0.9);
+      font-size: 10px;
+    }
+    .slide-meta {
+      font-size: 0.5em;
+      color: rgba(255,255,255,0.45);
+      margin-top: 0.25em;
+    }
+    .exact-time {
+      font-size: 0.6em;
+      color: rgba(100,200,255,0.85);
+      margin-top: 0.4em;
+      font-style: italic;
+    }
+    .section-tag {
+      display: inline-block;
+      background: rgba(68,170,255,0.18);
+      border: 1px solid rgba(68,170,255,0.4);
+      border-radius: 4px;
+      padding: 2px 10px;
+      font-size: 0.45em;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #4af;
+      margin-bottom: 0.5em;
+    }
+  </style>
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+
+      <!-- ── Slide 1: Title (no timestamp) ─────────────────────────────── -->
+      <section>
+        <h1 class="r-fit-text">Reveal Timeline Plugin</h1>
+        <p>An animated temporal compass for your presentations.</p>
+        <p class="slide-meta">Navigate time. Tell any story.</p>
+      </section>
+
+      <!-- ── Section 1: Chronological History ──────────────────────────── -->
+
+      <!-- Slide 2 -->
+      <section
+        data-timestamp="-000043-03-15"
+        data-span="5 years"
+      >
+        <div class="section-tag">Section 1 — Chronological History</div>
+        <h2>Ides of March, 44 BC</h2>
+        <p>Julius Caesar is assassinated in the Roman Senate.</p>
+        <p class="slide-meta">Date: <span class="tl-label"></span></p>
+      </section>
+
+      <!-- Slide 3 -->
+      <section
+        data-timestamp="1066-10-14"
+        data-span="6 months"
+      >
+        <div class="section-tag">Section 1 — Chronological History</div>
+        <h2>Battle of Hastings</h2>
+        <p>William the Conqueror defeats Harold II, beginning the Norman conquest of England.</p>
+        <p class="slide-meta">Date: <span class="tl-label"></span></p>
+      </section>
+
+      <!-- Slide 4 -->
+      <section
+        data-timestamp="1687-07-05"
+        data-span="2 years"
+      >
+        <div class="section-tag">Section 1 — Chronological History</div>
+        <h2>Principia Mathematica</h2>
+        <p>Isaac Newton publishes <em>Philosophiæ Naturalis Principia Mathematica</em>, laying the foundation of classical mechanics.</p>
+        <p class="slide-meta">Date: <span class="tl-label"></span></p>
+      </section>
+
+      <!-- Slide 5 -->
+      <section
+        data-timestamp="1776-07-04"
+        data-span="5 years"
+      >
+        <div class="section-tag">Section 1 — Chronological History</div>
+        <h2>American Independence</h2>
+        <p>The Continental Congress adopts the Declaration of Independence.</p>
+        <p class="slide-meta">Date: <span class="tl-label"></span></p>
+      </section>
+
+      <!-- Slide 6 — shows .tl-timestamp placeholder -->
+      <section
+        data-timestamp="1969-07-20T20:17:40"
+        data-span="3 days"
+      >
+        <div class="section-tag">Section 1 — Chronological History</div>
+        <h2>Moon Landing</h2>
+        <p>Apollo 11 touches down on the lunar surface.</p>
+        <p class="exact-time">Exact moment: <span class="tl-timestamp"></span></p>
+        <p class="slide-meta">Date: <span class="tl-label"></span></p>
+      </section>
+
+      <!-- Slide 7 -->
+      <section
+        data-timestamp="1989-11-09"
+        data-span="2 years"
+      >
+        <div class="section-tag">Section 1 — Chronological History</div>
+        <h2>Berlin Wall Falls</h2>
+        <p>East Germany opens its borders; crowds begin tearing down the Berlin Wall.</p>
+        <p class="slide-meta">Date: <span class="tl-label"></span></p>
+      </section>
+
+      <!-- Slide 8 -->
+      <section
+        data-timestamp="2004-02-04"
+        data-span="5 years"
+      >
+        <div class="section-tag">Section 1 — Chronological History</div>
+        <h2>Facebook Founded</h2>
+        <p>Mark Zuckerberg launches "TheFacebook" from his Harvard dorm room.</p>
+        <p class="slide-meta">Date: <span class="tl-label"></span></p>
+      </section>
+
+      <!-- ── Section 2: Nonlinear (separate horizontal section) ─────────── -->
+      <section>
+
+        <!-- Slide 9: Section title (no timestamp) -->
+        <section>
+          <h1 class="r-fit-text">Nonlinear Storytelling</h1>
+          <p>Navigate time in any order — the ticker follows your story.</p>
+          <p class="slide-meta">Press <kbd>↓</kbd> to begin.</p>
+        </section>
+
+        <!-- Slide 10 -->
+        <section
+          data-timestamp="1944-06-06"
+          data-span="2 weeks"
+        >
+          <div class="section-tag">Section 2 — Nolan-Style</div>
+          <h2>We Begin: D-Day</h2>
+          <p>Allied forces land on the beaches of Normandy.</p>
+          <p class="slide-meta">Date: <span class="tl-label"></span></p>
+        </section>
+
+        <!-- Slide 11 — goes backward! -->
+        <section
+          data-timestamp="1918-11-11"
+          data-span="6 months"
+        >
+          <div class="section-tag">Section 2 — Nolan-Style</div>
+          <h2>But First: WWI Ends</h2>
+          <p>The Armistice is signed — the war to end all wars concludes.</p>
+          <p class="slide-meta">Date: <span class="tl-label"></span></p>
+        </section>
+
+        <!-- Slide 12 -->
+        <section
+          data-timestamp="1945-05-08"
+          data-span="3 months"
+        >
+          <div class="section-tag">Section 2 — Nolan-Style</div>
+          <h2>Forward: VE Day</h2>
+          <p>Victory in Europe — Germany surrenders unconditionally.</p>
+          <p class="slide-meta">Date: <span class="tl-label"></span></p>
+        </section>
+
+        <!-- Slide 13 — back again -->
+        <section
+          data-timestamp="1939-09-01"
+          data-span="2 years"
+        >
+          <div class="section-tag">Section 2 — Nolan-Style</div>
+          <h2>Back Again: WWII Begins</h2>
+          <p>Germany invades Poland; Britain and France declare war two days later.</p>
+          <p class="slide-meta">Date: <span class="tl-label"></span></p>
+        </section>
+
+        <!-- Slide 14 -->
+        <section
+          data-timestamp="1945-09-02"
+          data-span="2 months"
+        >
+          <div class="section-tag">Section 2 — Nolan-Style</div>
+          <h2>Finally: VJ Day</h2>
+          <p>Japan formally surrenders aboard the USS Missouri — World War II ends.</p>
+          <p class="slide-meta">Date: <span class="tl-label"></span></p>
+        </section>
+
+      </section>
+
+    </div>
+  </div>
+
+  <!-- Legend overlay -->
+  <div class="legend">
+    <strong>DOM Placeholders</strong>
+    <code>.tl-timestamp</code> — full ISO datetime<br>
+    <code>.tl-label</code> — human-readable date<br>
+    <br>
+    <strong>Event</strong>
+    <code>timeline:change</code> on <code>.reveal</code>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.js"></script>
+  <script src="../dist/reveal-timeline-plugin.iife.js"></script>
+  <script>
+    Reveal.initialize({
+      hash: true,
+      plugins: [RevealTimeline],
+      timeline: {
+        defaultSpan: '50 years',
+        centerLabel: true,
+        noTimestamp: 'fade',
+        animation: { duration: 700 },
+      },
+      eraSuffix: {
+        bce: 'BC',
+        ce: 'AD',
+    },
+
+    });
+
+    // Log timeline:change events to the console for inspection
+    document.querySelector('.reveal').addEventListener('timeline:change', function(e) {
+      console.log('[timeline:change]', e.detail);
+    });
+  </script>
+</body>
+</html>

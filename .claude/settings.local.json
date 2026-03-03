@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:deepwiki.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(openspec new change \"reveal-timeline-plugin\")",
+      "Bash(openspec status --change \"reveal-timeline-plugin\" --json)",
+      "Bash(openspec instructions proposal --change \"reveal-timeline-plugin\" --json)",
+      "Bash(openspec instructions design --change \"reveal-timeline-plugin\" --json)",
+      "Bash(openspec instructions tasks --change \"reveal-timeline-plugin\" --json)",
+      "Bash(openspec status --change \"reveal-timeline-plugin\")",
+      "Bash(openspec instructions apply --change \"reveal-timeline-plugin\" --json)",
+      "Bash(npm install 2>&1)",
+      "Bash(npm test 2>&1)",
+      "Bash(node -e \"\nconst oneHour = 3600000;\nconst tenYears = 10 * 365.2425 * 86400000;\nconst midpoint = Math.sqrt\\(oneHour * tenYears\\);\nconst days = midpoint / 86400000;\nconsole.log\\('midpoint in days:', days.toFixed\\(2\\)\\);\n// ~12 days, roughly 2 weeks\nconst twoWeeks = 14 * 86400000;\nconsole.log\\('vs 2 weeks:', twoWeeks\\);\nconsole.log\\('within 50% of 2 weeks:', midpoint > twoWeeks * 0.5, midpoint < twoWeeks * 1.5\\);\n\")",
+      "Bash(npm run build:iife 2>&1)",
+      "Bash(npm run build:iife 2>&1 && tail -3 dist/reveal-timeline-plugin.iife.js)"
+    ]
+  }
+}
