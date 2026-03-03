@@ -169,8 +169,8 @@ Reveal.initialize({
       easing: 'ease-in-out',
     },
     eraSuffix: {
-      bce: 'BCE',
-      ce: 'CE',
+      bc: 'BCE',
+      ad: 'CE',
     },
   },
 });
@@ -185,8 +185,8 @@ Reveal.initialize({
 | `noTimestamp` | `'fade'` \| `'hide'` \| `'freeze'` | `'fade'` | Behaviour when navigating to a non-temporal slide. `'fade'` reduces ticker opacity; `'hide'` removes it from the DOM; `'freeze'` leaves it visible at the last position. |
 | `animation.duration` | `number` | `600` | Duration of the pan/zoom animation in milliseconds. |
 | `animation.easing` | `string` | `'ease-in-out'` | CSS easing name used to drive the animation curve. |
-| `eraSuffix.bce` | `string` | `'BCE'` | Text appended to negative-year tick labels and center labels. |
-| `eraSuffix.ce` | `string` | `'CE'` | Text appended to positive-year tick labels when the era is shown explicitly. |
+| `eraSuffix.bc` | `string` | `'BC'` | Text appended to negative-year tick labels and center labels. |
+| `eraSuffix.ad` | `string` | `'AD'` | Text appended to positive-year tick labels when the era is shown explicitly. |
 
 ## CSS Custom Properties
 

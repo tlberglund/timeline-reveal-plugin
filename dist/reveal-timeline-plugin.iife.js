@@ -6670,8 +6670,8 @@ var RevealTimeline = (() => {
       easing: "ease-in-out"
     },
     eraSuffix: {
-      bce: "BCE",
-      ce: "CE"
+      bc: "BC",
+      ad: "AD"
     }
   };
   function resolveConfig(userConfig) {
@@ -7082,7 +7082,7 @@ var RevealTimeline = (() => {
         return pdt.add({ years: value });
     }
   }
-  function computeTicks(centerTimestamp, spanMs, width) {
+  function computeTicks(centerTimestamp, spanMs, width, eraSuffix) {
     const { unit, value } = resolveTickInterval(spanMs);
     const centerMs = plainDateTimeToMs(centerTimestamp);
     const halfSpan = spanMs / 2;
@@ -7105,7 +7105,7 @@ var RevealTimeline = (() => {
       }
       const x2 = centerX + (tickMs - centerMs) / spanMs * width;
       if (x2 >= -20 && x2 <= width + 20) {
-        const label = formatTickLabel(current, unit, value, { bce: "BCE", ce: "CE" });
+        const label = formatTickLabel(current, unit, value, eraSuffix);
         ticks.push({ timestamp: current, x: x2, label });
       }
       const next = advanceTick(current, unit, value);
@@ -7132,7 +7132,7 @@ var RevealTimeline = (() => {
     return { hours: Math.max(hours, 1) };
   }
   function formatTickLabel(timestamp, intervalUnit, intervalValue, eraSuffix) {
-    const eras = eraSuffix || { bce: "BCE", ce: "CE" };
+    const eras = eraSuffix || { bc: "BC", ad: "AD" };
     if (intervalUnit === "second" || intervalUnit === "minute") {
       return `${padTwo(timestamp.hour)}:${padTwo(timestamp.minute)}`;
     }
@@ -7154,14 +7154,14 @@ var RevealTimeline = (() => {
     if (intervalUnit === "month") {
       if (timestamp.year <= 0) {
         const bceYear = 1 - timestamp.year;
-        return `${MONTH_ABBREVS[timestamp.month - 1]} ${bceYear} ${eras.bce}`;
+        return `${MONTH_ABBREVS[timestamp.month - 1]} ${bceYear} ${eras.bc}`;
       }
       return `${MONTH_ABBREVS[timestamp.month - 1]} ${timestamp.year}`;
     }
     if (intervalUnit === "year") {
       if (intervalValue === 1) {
         if (timestamp.year <= 0) {
-          return `${1 - timestamp.year} ${eras.bce}`;
+          return `${1 - timestamp.year} ${eras.bc}`;
         }
         return `${timestamp.year}`;
       }
@@ -7169,7 +7169,7 @@ var RevealTimeline = (() => {
         if (timestamp.year <= 0) {
           const bceYear = 1 - timestamp.year;
           const decadeBase = Math.floor(bceYear / 10) * 10;
-          return `${decadeBase}s ${eras.bce}`;
+          return `${decadeBase}s ${eras.bc}`;
         }
         const decade = Math.floor(timestamp.year / 10) * 10;
         return `${decade}s`;
@@ -7178,13 +7178,13 @@ var RevealTimeline = (() => {
         if (timestamp.year <= 0) {
           const bceYear = 1 - timestamp.year;
           const centuryBase = Math.floor(bceYear / 100) * 100;
-          return `${centuryBase}s ${eras.bce}`;
+          return `${centuryBase}s ${eras.bc}`;
         }
         const century = Math.floor(timestamp.year / 100) * 100;
         return `${century}s`;
       }
       if (timestamp.year <= 0) {
-        return `${1 - timestamp.year} ${eras.bce}`;
+        return `${1 - timestamp.year} ${eras.bc}`;
       }
       return `${timestamp.year}`;
     }
@@ -7195,7 +7195,7 @@ var RevealTimeline = (() => {
     const width = rect.width || svgElement.clientWidth || 800;
     const height = config.height;
     const { centerTimestamp, spanMs, activeLayer, layerOpacity } = state;
-    const ticks = computeTicks(centerTimestamp, spanMs, width);
+    const ticks = computeTicks(centerTimestamp, spanMs, width, config.eraSuffix);
     const axisGroup = svgElement.querySelector(".tl-axis");
     if (axisGroup) {
       clearGroup(axisGroup);
@@ -7299,7 +7299,7 @@ var RevealTimeline = (() => {
     });
     centerGroup.appendChild(diamond);
     if (config.centerLabel && centerTimestamp) {
-      const labelText = formatCenterLabel(centerTimestamp);
+      const labelText = formatCenterLabel(centerTimestamp, config.eraSuffix);
       const text = svgEl("text", {
         class: "tl-center-label",
         x: cx,
@@ -7313,10 +7313,11 @@ var RevealTimeline = (() => {
       centerGroup.appendChild(text);
     }
   }
-  function formatCenterLabel(pdt) {
+  function formatCenterLabel(pdt, eraSuffix) {
+    const bc = eraSuffix && eraSuffix.bc || "BC";
     if (pdt.year <= 0) {
       const bceYear = 1 - pdt.year;
-      return `${bceYear} BCE`;
+      return `${bceYear} ${bc}`;
     }
     const month = MONTH_ABBREVS[pdt.month - 1];
     if (pdt.hour !== 0 || pdt.minute !== 0 || pdt.second !== 0) {
@@ -7534,10 +7535,10 @@ var RevealTimeline = (() => {
   }
 
   // src/slide-data-api.js
-  function populatePlaceholders(slideEl, timestamp, spanString) {
+  function populatePlaceholders(slideEl, timestamp, spanString, eraSuffix) {
     const tsEls = slideEl.querySelectorAll(".tl-timestamp");
     const labelEls = slideEl.querySelectorAll(".tl-label");
-    const tsText = timestamp ? formatTimestampForDisplay(timestamp, { bce: "BCE", ce: "CE" }) : "";
+    const tsText = timestamp ? formatTimestampForDisplay(timestamp, eraSuffix || { bc: "BC", ad: "AD" }) : "";
     const labelText = spanString || "";
     tsEls.forEach((el) => el.textContent = tsText);
     labelEls.forEach((el) => el.textContent = labelText);
@@ -7545,7 +7546,7 @@ var RevealTimeline = (() => {
   function formatTimestampForDisplay(pdt, eraSuffix) {
     const hasTime = pdt.hour !== 0 || pdt.minute !== 0 || pdt.second !== 0;
     const year = pdt.year;
-    const displayYear = year <= 0 ? `${1 - year} ${eraSuffix.bce}` : `${year}`;
+    const displayYear = year <= 0 ? `${1 - year} ${eraSuffix.bc}` : `${year}`;
     const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const month = MONTHS[pdt.month - 1];
     const day = pdt.day;
@@ -7570,8 +7571,8 @@ var RevealTimeline = (() => {
     });
     deckEl.dispatchEvent(event);
   }
-  function clearPlaceholders(slideEl) {
-    populatePlaceholders(slideEl, null, null);
+  function clearPlaceholders(slideEl, eraSuffix) {
+    populatePlaceholders(slideEl, null, null, eraSuffix);
   }
 
   // src/index.js
@@ -7646,7 +7647,7 @@ var RevealTimeline = (() => {
       if (initialEntry && initialEntry.temporal) {
         initialEntry.visited = true;
         renderInitial(initialEntry);
-        populatePlaceholders(initialEntry.slideEl, initialEntry.timestamp, spanToString(initialEntry.parsedSpan));
+        populatePlaceholders(initialEntry.slideEl, initialEntry.timestamp, spanToString(initialEntry.parsedSpan), config.eraSuffix);
         dispatchTimelineChange(revealEl, initialEntry.timestamp, initialEntry.spanMs, spanToString(initialEntry.parsedSpan));
       } else {
         handleNonTemporal(revealEl);
@@ -7699,7 +7700,7 @@ var RevealTimeline = (() => {
         if (!entry || !entry.temporal) {
           const currentSlideEl = deck.getCurrentSlide ? deck.getCurrentSlide() : null;
           if (currentSlideEl)
-            clearPlaceholders(currentSlideEl);
+            clearPlaceholders(currentSlideEl, config.eraSuffix);
           dispatchTimelineChange(revealEl, null, null, null);
           handleNonTemporal(revealEl);
           return;
@@ -7708,7 +7709,7 @@ var RevealTimeline = (() => {
           entry.visited = true;
         }
         handleTemporal(entry);
-        populatePlaceholders(entry.slideEl, entry.timestamp, spanToString(entry.parsedSpan));
+        populatePlaceholders(entry.slideEl, entry.timestamp, spanToString(entry.parsedSpan), config.eraSuffix);
         dispatchTimelineChange(revealEl, entry.timestamp, entry.spanMs, spanToString(entry.parsedSpan));
       });
       deck.on("resize", () => {

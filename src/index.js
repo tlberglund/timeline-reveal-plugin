@@ -107,7 +107,7 @@ const RevealTimeline = {
       if(initialEntry && initialEntry.temporal) {
          initialEntry.visited = true;
          renderInitial(initialEntry);
-         populatePlaceholders(initialEntry.slideEl, initialEntry.timestamp, spanToString(initialEntry.parsedSpan));
+         populatePlaceholders(initialEntry.slideEl, initialEntry.timestamp, spanToString(initialEntry.parsedSpan), config.eraSuffix);
          dispatchTimelineChange(revealEl, initialEntry.timestamp, initialEntry.spanMs, spanToString(initialEntry.parsedSpan));
       }
       else {
@@ -188,7 +188,7 @@ const RevealTimeline = {
          if(!entry || !entry.temporal) {
             // Task 7.4: non-temporal slide
             const currentSlideEl = deck.getCurrentSlide ? deck.getCurrentSlide() : null;
-            if(currentSlideEl) clearPlaceholders(currentSlideEl);
+            if(currentSlideEl) clearPlaceholders(currentSlideEl, config.eraSuffix);
             dispatchTimelineChange(revealEl, null, null, null);
             handleNonTemporal(revealEl);
             return;
@@ -202,7 +202,7 @@ const RevealTimeline = {
          handleTemporal(entry);
 
          // Task 7.3: populate placeholders and dispatch event
-         populatePlaceholders(entry.slideEl, entry.timestamp, spanToString(entry.parsedSpan));
+         populatePlaceholders(entry.slideEl, entry.timestamp, spanToString(entry.parsedSpan), config.eraSuffix);
          dispatchTimelineChange(revealEl, entry.timestamp, entry.spanMs, spanToString(entry.parsedSpan));
       });
 

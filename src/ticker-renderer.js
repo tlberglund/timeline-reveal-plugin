@@ -278,7 +278,7 @@ function advanceTick(pdt, unit, value) {
  * @param {number} width  - SVG width in pixels
  * @returns {Array<{ timestamp: Temporal.PlainDateTime, x: number, label: string }>}
  */
-export function computeTicks(centerTimestamp, spanMs, width) {
+export function computeTicks(centerTimestamp, spanMs, width, eraSuffix) {
    const { unit, value } = resolveTickInterval(spanMs);
 
    const centerMs = plainDateTimeToMs(centerTimestamp);
@@ -313,7 +313,7 @@ export function computeTicks(centerTimestamp, spanMs, width) {
       const x = centerX + (tickMs - centerMs) / spanMs * width;
 
       if(x >= -20 && x <= width + 20) {
-         const label = formatTickLabel(current, unit, value, { bce: 'BCE', ce: 'CE' });
+         const label = formatTickLabel(current, unit, value, eraSuffix);
          ticks.push({ timestamp: current, x, label });
       }
 
@@ -360,7 +360,7 @@ function durationFromMs(ms) {
  * @returns {string}
  */
 export function formatTickLabel(timestamp, intervalUnit, intervalValue, eraSuffix) {
-   const eras = eraSuffix || { bce: 'BCE', ce: 'CE' };
+   const eras = eraSuffix || { bc: 'BC', ad: 'AD' };
 
    if(intervalUnit === 'second' || intervalUnit === 'minute') {
       return `${padTwo(timestamp.hour)}:${padTwo(timestamp.minute)}`;
@@ -389,7 +389,7 @@ export function formatTickLabel(timestamp, intervalUnit, intervalValue, eraSuffi
    if(intervalUnit === 'month') {
       if(timestamp.year <= 0) {
          const bceYear = 1 - timestamp.year;
-         return `${MONTH_ABBREVS[timestamp.month - 1]} ${bceYear} ${eras.bce}`;
+         return `${MONTH_ABBREVS[timestamp.month - 1]} ${bceYear} ${eras.bc}`;
       }
       return `${MONTH_ABBREVS[timestamp.month - 1]} ${timestamp.year}`;
    }
@@ -397,7 +397,7 @@ export function formatTickLabel(timestamp, intervalUnit, intervalValue, eraSuffi
    if(intervalUnit === 'year') {
       if(intervalValue === 1) {
          if(timestamp.year <= 0) {
-            return `${1 - timestamp.year} ${eras.bce}`;
+            return `${1 - timestamp.year} ${eras.bc}`;
          }
          return `${timestamp.year}`;
       }
@@ -407,7 +407,7 @@ export function formatTickLabel(timestamp, intervalUnit, intervalValue, eraSuffi
          if(timestamp.year <= 0) {
             const bceYear = 1 - timestamp.year;
             const decadeBase = Math.floor(bceYear / 10) * 10;
-            return `${decadeBase}s ${eras.bce}`;
+            return `${decadeBase}s ${eras.bc}`;
          }
          const decade = Math.floor(timestamp.year / 10) * 10;
          return `${decade}s`;
@@ -418,7 +418,7 @@ export function formatTickLabel(timestamp, intervalUnit, intervalValue, eraSuffi
          if(timestamp.year <= 0) {
             const bceYear = 1 - timestamp.year;
             const centuryBase = Math.floor(bceYear / 100) * 100;
-            return `${centuryBase}s ${eras.bce}`;
+            return `${centuryBase}s ${eras.bc}`;
          }
          const century = Math.floor(timestamp.year / 100) * 100;
          return `${century}s`;
@@ -426,7 +426,7 @@ export function formatTickLabel(timestamp, intervalUnit, intervalValue, eraSuffi
 
       // 500yr or other large intervals — just display the year
       if(timestamp.year <= 0) {
-         return `${1 - timestamp.year} ${eras.bce}`;
+         return `${1 - timestamp.year} ${eras.bc}`;
       }
       return `${timestamp.year}`;
    }
@@ -453,7 +453,7 @@ export function renderTicker(svgElement, state, model, config) {
 
    const { centerTimestamp, spanMs, activeLayer, layerOpacity } = state;
 
-   const ticks = computeTicks(centerTimestamp, spanMs, width);
+   const ticks = computeTicks(centerTimestamp, spanMs, width, config.eraSuffix);
 
    // ── Axis line ──────────────────────────────────────────────────────────────
    const axisGroup = svgElement.querySelector('.tl-axis');
@@ -586,7 +586,7 @@ export function renderCenterMarker(centerGroup, svgWidth, svgHeight, centerTimes
    centerGroup.appendChild(diamond);
 
    if(config.centerLabel && centerTimestamp) {
-      const labelText = formatCenterLabel(centerTimestamp);
+      const labelText = formatCenterLabel(centerTimestamp, config.eraSuffix);
       const text = svgEl('text', {
          class: 'tl-center-label',
          x: cx,
@@ -601,10 +601,11 @@ export function renderCenterMarker(centerGroup, svgWidth, svgHeight, centerTimes
    }
 }
 
-function formatCenterLabel(pdt) {
+function formatCenterLabel(pdt, eraSuffix) {
+   const bc = (eraSuffix && eraSuffix.bc) || 'BC';
    if(pdt.year <= 0) {
       const bceYear = 1 - pdt.year;
-      return `${bceYear} BCE`;
+      return `${bceYear} ${bc}`;
    }
    const month = MONTH_ABBREVS[pdt.month - 1];
    if(pdt.hour !== 0 || pdt.minute !== 0 || pdt.second !== 0) {

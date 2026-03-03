@@ -1,10 +1,10 @@
 import { Temporal } from '@js-temporal/polyfill';
 
 // Task 6.1
-export function populatePlaceholders(slideEl, timestamp, spanString) {
+export function populatePlaceholders(slideEl, timestamp, spanString, eraSuffix) {
    const tsEls = slideEl.querySelectorAll('.tl-timestamp');
    const labelEls = slideEl.querySelectorAll('.tl-label');
-   const tsText = timestamp ? formatTimestampForDisplay(timestamp, { bce: 'BCE', ce: 'CE' }) : '';
+   const tsText = timestamp ? formatTimestampForDisplay(timestamp, eraSuffix || { bc: 'BC', ad: 'AD' }) : '';
    const labelText = spanString || '';
    tsEls.forEach(el => el.textContent = tsText);
    labelEls.forEach(el => el.textContent = labelText);
@@ -14,7 +14,7 @@ export function populatePlaceholders(slideEl, timestamp, spanString) {
 export function formatTimestampForDisplay(pdt, eraSuffix) {
    const hasTime = pdt.hour !== 0 || pdt.minute !== 0 || pdt.second !== 0;
    const year = pdt.year;
-   const displayYear = year <= 0 ? `${1 - year} ${eraSuffix.bce}` : `${year}`;
+   const displayYear = year <= 0 ? `${1 - year} ${eraSuffix.bc}` : `${year}`;
    const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
    const month = MONTHS[pdt.month - 1];
    const day = pdt.day;
@@ -43,6 +43,6 @@ export function dispatchTimelineChange(deckEl, timestamp, spanMs, spanString) {
 }
 
 // Task 6.4
-export function clearPlaceholders(slideEl) {
-   populatePlaceholders(slideEl, null, null);
+export function clearPlaceholders(slideEl, eraSuffix) {
+   populatePlaceholders(slideEl, null, null, eraSuffix);
 }

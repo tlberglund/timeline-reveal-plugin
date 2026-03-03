@@ -10,8 +10,8 @@ export const DEFAULT_CONFIG = {
       easing: 'ease-in-out',
    },
    eraSuffix: {
-      bce: 'BCE',
-      ce: 'CE',
+      bc: 'BC',
+      ad: 'AD',
    },
 };
 

@@ -6658,8 +6658,8 @@ var DEFAULT_CONFIG = {
     easing: "ease-in-out"
   },
   eraSuffix: {
-    bce: "BCE",
-    ce: "CE"
+    bce: "BC",
+    ce: "AD"
   }
 };
 function resolveConfig(userConfig) {
