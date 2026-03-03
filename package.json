@@ -7,6 +7,7 @@
   "scripts": {
     "build": "esbuild src/index.js --bundle --format=esm --outfile=dist/reveal-timeline-plugin.js",
     "build:iife": "esbuild src/index.js --bundle --format=iife --global-name=RevealTimeline --outfile=dist/reveal-timeline-plugin.iife.js --footer:js=RevealTimeline=RevealTimeline.default;",
+    "build:iife:min": "esbuild src/index.js --bundle --format=iife --global-name=RevealTimeline --minify --outfile=dist/reveal-timeline-plugin.iife.min.js --footer:js=RevealTimeline=RevealTimeline.default;",
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
     "dev": "esbuild src/index.js --bundle --format=iife --global-name=RevealTimeline --outfile=dist/reveal-timeline-plugin.iife.js --footer:js=RevealTimeline=RevealTimeline.default; --watch"
   },
