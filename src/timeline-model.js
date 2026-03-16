@@ -17,14 +17,20 @@ export function parseTimestamp(str) {
    try {
       if(RE_YEAR_ONLY.test(s)) {
          const year = parseInt(s, 10);
-         return Temporal.PlainDateTime.from({ year, month: 1, day: 1, hour: 0, minute: 0, second: 0 });
+         return {
+            timestamp: Temporal.PlainDateTime.from({ year, month: 1, day: 1, hour: 0, minute: 0, second: 0 }),
+            precision: 'year',
+         };
       }
 
       if(RE_YEAR_MONTH.test(s)) {
          const m = s.match(RE_YEAR_MONTH);
          const year = parseInt(m[1], 10);
          const month = parseInt(m[2], 10);
-         return Temporal.PlainDateTime.from({ year, month, day: 1, hour: 0, minute: 0, second: 0 });
+         return {
+            timestamp: Temporal.PlainDateTime.from({ year, month, day: 1, hour: 0, minute: 0, second: 0 }),
+            precision: 'month',
+         };
       }
 
       if(RE_DATE_ONLY.test(s)) {
@@ -32,11 +38,17 @@ export function parseTimestamp(str) {
          const year = parseInt(m[1], 10);
          const month = parseInt(m[2], 10);
          const day = parseInt(m[3], 10);
-         return Temporal.PlainDateTime.from({ year, month, day, hour: 0, minute: 0, second: 0 });
+         return {
+            timestamp: Temporal.PlainDateTime.from({ year, month, day, hour: 0, minute: 0, second: 0 }),
+            precision: 'day',
+         };
       }
 
       if(RE_DATETIME.test(s)) {
-         return Temporal.PlainDateTime.from(s);
+         return {
+            timestamp: Temporal.PlainDateTime.from(s),
+            precision: 'datetime',
+         };
       }
 
       console.warn('parseTimestamp: unrecognized timestamp format:', str);
@@ -57,9 +69,13 @@ export function buildTimelineModel(slides, config) {
       let timestamp = null;
       let temporal = false;
 
+      let precision = null;
+
       if(rawTimestamp != null && rawTimestamp !== '') {
-         timestamp = parseTimestamp(rawTimestamp);
-         if(timestamp !== null) {
+         const parsed = parseTimestamp(rawTimestamp);
+         if(parsed !== null) {
+            timestamp = parsed.timestamp;
+            precision = parsed.precision;
             temporal = true;
          }
       }
@@ -90,6 +106,7 @@ export function buildTimelineModel(slides, config) {
          slideEl,
          temporal,
          timestamp,
+         precision,
          parsedSpan,
          spanMs,
          visited: false,

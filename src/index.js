@@ -42,6 +42,7 @@ const RevealTimeline = {
       let layerOpacity = { a: 1, b: 0 };
       let currentTimestamp = null;
       let currentSpanMs = null;
+      let currentPrecision = null;
 
       // For label crossfade: track the interval key of the current render
       let currentIntervalKey = null;
@@ -60,7 +61,7 @@ const RevealTimeline = {
          return 'year-500';
       }
 
-      function renderFrame(timestamp, spanMs, animT) {
+      function renderFrame(timestamp, spanMs, animT, precision) {
          // Determine if label crossfade is needed
          const newKey = getIntervalKey(spanMs);
          const formatChanged = newKey !== currentIntervalKey;
@@ -81,6 +82,7 @@ const RevealTimeline = {
 
          const state = {
             centerTimestamp: timestamp,
+            precision: precision != null ? precision : currentPrecision,
             spanMs,
             activeLayer,
             layerOpacity,
@@ -93,10 +95,11 @@ const RevealTimeline = {
          if(!entry || !entry.temporal) return;
          currentTimestamp = entry.timestamp;
          currentSpanMs = entry.spanMs;
+         currentPrecision = entry.precision;
          currentIntervalKey = getIntervalKey(currentSpanMs);
          layerOpacity = { a: 1, b: 0 };
          activeLayer = 'a';
-         renderFrame(currentTimestamp, currentSpanMs, null);
+         renderFrame(currentTimestamp, currentSpanMs, null, currentPrecision);
       }
 
       // --- Task 7.2: Render initial state ---
@@ -107,7 +110,7 @@ const RevealTimeline = {
       if(initialEntry && initialEntry.temporal) {
          initialEntry.visited = true;
          renderInitial(initialEntry);
-         populatePlaceholders(initialEntry.slideEl, initialEntry.timestamp, spanToString(initialEntry.parsedSpan), config.eraSuffix);
+         populatePlaceholders(initialEntry.slideEl, initialEntry.timestamp, initialEntry.precision, spanToString(initialEntry.parsedSpan), config.eraSuffix);
          dispatchTimelineChange(revealEl, initialEntry.timestamp, initialEntry.spanMs, spanToString(initialEntry.parsedSpan));
       }
       else {
@@ -161,6 +164,7 @@ const RevealTimeline = {
          // Always record the destination as current so the next transition has a valid from
          currentTimestamp = entry.timestamp;
          currentSpanMs = entry.spanMs;
+         currentPrecision = entry.precision;
 
          // No previous position — snap directly to the destination
          if(!from) {
@@ -202,7 +206,7 @@ const RevealTimeline = {
          handleTemporal(entry);
 
          // Task 7.3: populate placeholders and dispatch event
-         populatePlaceholders(entry.slideEl, entry.timestamp, spanToString(entry.parsedSpan), config.eraSuffix);
+         populatePlaceholders(entry.slideEl, entry.timestamp, entry.precision, spanToString(entry.parsedSpan), config.eraSuffix);
          dispatchTimelineChange(revealEl, entry.timestamp, entry.spanMs, spanToString(entry.parsedSpan));
       });
 

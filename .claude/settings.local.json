@@ -18,7 +18,13 @@
       "Bash(npm run build:iife 2>&1)",
       "Bash(npm run build:iife 2>&1 && tail -3 dist/reveal-timeline-plugin.iife.js)",
       "Bash(npm test 2>&1 | tail -10 && npm run build:iife 2>&1 | tail -4)",
-      "Bash(npm run build:iife:min 2>&1)"
+      "Bash(npm run build:iife:min 2>&1)",
+      "Bash(npm run:*)",
+      "Bash(npm test:*)"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "tessl"
+  ]
 }

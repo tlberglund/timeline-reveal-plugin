@@ -20,23 +20,29 @@ const TICK_INTERVAL_TABLE = [
 const DEFAULT_TICK_INTERVAL = { unit: 'year', value: 500 };
 
 const CSS = `
-.tl-ticker {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  z-index: 100;
-  font-family: inherit;
-  --tl-tick-color: rgba(255,255,255,0.6);
-  --tl-label-color: rgba(255,255,255,0.8);
-  --tl-marker-color: #fff;
-  --tl-center-color: #4af;
-  --tl-dot-visited: rgba(255,255,255,0.7);
-  --tl-dot-unvisited: rgba(255,255,255,0.25);
-  --tl-dot-current: #4af;
-  --tl-font-size: 11px;
+@layer reveal-timeline {
+  :root {
+    --tl-tick-color: rgba(255,255,255,0.6);
+    --tl-label-color: rgba(255,255,255,0.8);
+    --tl-marker-color: #fff;
+    --tl-center-color: #4af;
+    --tl-dot-visited: rgba(255,255,255,0.7);
+    --tl-dot-unvisited: rgba(255,255,255,0.25);
+    --tl-dot-current: #4af;
+    --tl-font-size: 11px;
+    --tl-line-width: 1;
+    --tl-center-line-width: 2;
+  }
+  .tl-ticker {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    z-index: 100;
+    font-family: inherit;
+  }
+  .tl-ticker.tl-position-bottom { bottom: 0; }
+  .tl-ticker.tl-position-top { top: 0; }
 }
-.tl-ticker.tl-position-bottom { bottom: 0; }
-.tl-ticker.tl-position-top { top: 0; }
 `;
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -451,7 +457,7 @@ export function renderTicker(svgElement, state, model, config) {
    const width = rect.width || svgElement.clientWidth || 800;
    const height = config.height;
 
-   const { centerTimestamp, spanMs, activeLayer, layerOpacity } = state;
+   const { centerTimestamp, precision, spanMs, activeLayer, layerOpacity } = state;
 
    const ticks = computeTicks(centerTimestamp, spanMs, width, config.eraSuffix);
 
@@ -465,7 +471,7 @@ export function renderTicker(svgElement, state, model, config) {
          x1: '0', y1: axisY,
          x2: '100%', y2: axisY,
          stroke: 'var(--tl-tick-color)',
-         'stroke-width': '1',
+         'stroke-width': 'var(--tl-line-width)',
       });
       axisGroup.appendChild(line);
    }
@@ -485,12 +491,13 @@ export function renderTicker(svgElement, state, model, config) {
       const opB = layerOpacity ? (layerOpacity.b != null ? layerOpacity.b : 0) : 0;
 
       // Render ticks into the active layer; the inactive layer retains previous content
+      const centerX = width / 2;
       if(activeLayer === 'a') {
-         renderTickLabels(labelsA, ticks, height, opA);
+         renderTickLabels(labelsA, ticks, height, opA, centerX);
          labelsB.setAttribute('opacity', String(opB));
       }
       else {
-         renderTickLabels(labelsB, ticks, height, opB);
+         renderTickLabels(labelsB, ticks, height, opB, centerX);
          labelsA.setAttribute('opacity', String(opA));
       }
    }
@@ -504,7 +511,7 @@ export function renderTicker(svgElement, state, model, config) {
    // ── Center marker ─────────────────────────────────────────────────────────
    const centerGroup = svgElement.querySelector('.tl-center');
    if(centerGroup) {
-      renderCenterMarker(centerGroup, width, height, centerTimestamp, config);
+      renderCenterMarker(centerGroup, width, height, centerTimestamp, precision, config);
    }
 }
 
@@ -522,7 +529,7 @@ function renderTickLines(group, ticks, svgHeight) {
          x1: tick.x, y1: axisY - tickHeight,
          x2: tick.x, y2: axisY,
          stroke: 'var(--tl-tick-color)',
-         'stroke-width': isMajor ? '1.5' : '1',
+         'stroke-width': isMajor ? 'calc(var(--tl-line-width) * 1.5)' : 'var(--tl-line-width)',
       });
       group.appendChild(line);
    }
@@ -530,7 +537,9 @@ function renderTickLines(group, ticks, svgHeight) {
 
 // ─── Tick Labels ──────────────────────────────────────────────────────────────
 
-function renderTickLabels(group, ticks, svgHeight, opacity) {
+const CENTER_LABEL_SUPPRESS_RADIUS = 20;
+
+function renderTickLabels(group, ticks, svgHeight, opacity, centerX) {
    clearGroup(group);
    group.setAttribute('opacity', String(opacity));
 
@@ -538,6 +547,9 @@ function renderTickLabels(group, ticks, svgHeight, opacity) {
 
    for(const tick of ticks) {
       if(!tick.label) {
+         continue;
+      }
+      if(centerX != null && Math.abs(tick.x - centerX) < CENTER_LABEL_SUPPRESS_RADIUS) {
          continue;
       }
       const text = svgEl('text', {
@@ -558,40 +570,22 @@ function renderTickLabels(group, ticks, svgHeight, opacity) {
 /**
  * Renders the center marker: a vertical line + optional label.
  */
-export function renderCenterMarker(centerGroup, svgWidth, svgHeight, centerTimestamp, config) {
+export function renderCenterMarker(centerGroup, svgWidth, svgHeight, centerTimestamp, precision, config) {
    clearGroup(centerGroup);
 
    const cx = svgWidth / 2;
    const axisY = svgHeight - 14;
    const labelHeight = 16;
 
-   // Vertical line from top to just above axis
-   const line = svgEl('line', {
-      class: 'tl-center-line',
-      x1: cx, y1: 0,
-      x2: cx, y2: axisY - labelHeight,
-      stroke: 'var(--tl-center-color)',
-      'stroke-width': '2',
-   });
-   centerGroup.appendChild(line);
-
-   // Small diamond marker at axis level
-   const diamondSize = 5;
-   const dy = axisY;
-   const diamond = svgEl('polygon', {
-      class: 'tl-center-marker',
-      points: `${cx},${dy - diamondSize} ${cx + diamondSize},${dy} ${cx},${dy + diamondSize} ${cx - diamondSize},${dy}`,
-      fill: 'var(--tl-center-color)',
-   });
-   centerGroup.appendChild(diamond);
-
+   // Label at top of center line (rendered first so line draws over its bottom edge)
    if(config.centerLabel && centerTimestamp) {
-      const labelText = formatCenterLabel(centerTimestamp, config.eraSuffix);
+      const labelText = formatCenterLabel(centerTimestamp, precision, config.eraSuffix);
       const text = svgEl('text', {
          class: 'tl-center-label',
          x: cx,
-         y: svgHeight - 2,
+         y: 3,
          'text-anchor': 'middle',
+         'dominant-baseline': 'hanging',
          fill: 'var(--tl-center-color)',
          'font-size': 'var(--tl-font-size)',
          'font-weight': 'bold',
@@ -599,19 +593,48 @@ export function renderCenterMarker(centerGroup, svgWidth, svgHeight, centerTimes
       text.textContent = labelText;
       centerGroup.appendChild(text);
    }
+
+   // Vertical line from below label to just above diamond
+   const diamondSize = 5;
+   const lineTop = config.centerLabel ? config.centerLineTop : 0;
+   const line = svgEl('line', {
+      class: 'tl-center-line',
+      x1: cx, y1: lineTop,
+      x2: cx, y2: axisY - diamondSize,
+      stroke: 'var(--tl-center-color)',
+      'stroke-width': 'var(--tl-center-line-width)',
+   });
+   centerGroup.appendChild(line);
+
+   // Small diamond marker at axis level
+   const dy = axisY;
+   const diamond = svgEl('polygon', {
+      class: 'tl-center-marker',
+      points: `${cx},${dy - diamondSize} ${cx + diamondSize},${dy} ${cx},${dy + diamondSize} ${cx - diamondSize},${dy}`,
+      fill: 'var(--tl-center-color)',
+   });
+   centerGroup.appendChild(diamond);
 }
 
-function formatCenterLabel(pdt, eraSuffix) {
+function formatCenterLabel(pdt, precision, eraSuffix) {
    const bc = (eraSuffix && eraSuffix.bc) || 'BC';
-   if(pdt.year <= 0) {
-      const bceYear = 1 - pdt.year;
-      return `${bceYear} ${bc}`;
+   const displayYear = pdt.year <= 0 ? `${1 - pdt.year} ${bc}` : `${pdt.year}`;
+
+   if(precision === 'year') {
+      return displayYear;
    }
+
    const month = MONTH_ABBREVS[pdt.month - 1];
-   if(pdt.hour !== 0 || pdt.minute !== 0 || pdt.second !== 0) {
-      return `${month} ${pdt.day}, ${pdt.year} ${padTwo(pdt.hour)}:${padTwo(pdt.minute)}`;
+
+   if(precision === 'month') {
+      return `${month} ${displayYear}`;
    }
-   return `${month} ${pdt.day}, ${pdt.year}`;
+
+   if(precision === 'datetime') {
+      return `${month} ${pdt.day}, ${displayYear} ${padTwo(pdt.hour)}:${padTwo(pdt.minute)}`;
+   }
+
+   return `${month} ${pdt.day}, ${displayYear}`;
 }
 
 // ─── Dot Markers ──────────────────────────────────────────────────────────────

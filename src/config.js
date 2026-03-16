@@ -3,6 +3,7 @@ export const DEFAULT_CONFIG = {
    position: 'bottom',
    height: 56,
    centerLabel: true,
+   centerLineTop: 20,
    labelFormat: 'auto',
    noTimestamp: 'fade',
    animation: {

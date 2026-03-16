@@ -15,56 +15,62 @@ describe('parseTimestamp', () => {
       warnSpy.mockRestore();
    });
 
-   it('parses a year-only timestamp to Jan 1 midnight', () => {
-      const dt = parseTimestamp('1969');
+   it('parses a year-only timestamp to Jan 1 midnight with year precision', () => {
+      const { timestamp: dt, precision } = parseTimestamp('1969');
       expect(dt.year).toBe(1969);
       expect(dt.month).toBe(1);
       expect(dt.day).toBe(1);
       expect(dt.hour).toBe(0);
       expect(dt.minute).toBe(0);
       expect(dt.second).toBe(0);
+      expect(precision).toBe('year');
    });
 
-   it('parses a year-month timestamp to 1st of month, midnight', () => {
-      const dt = parseTimestamp('1969-07');
+   it('parses a year-month timestamp to 1st of month, midnight with month precision', () => {
+      const { timestamp: dt, precision } = parseTimestamp('1969-07');
       expect(dt.year).toBe(1969);
       expect(dt.month).toBe(7);
       expect(dt.day).toBe(1);
       expect(dt.hour).toBe(0);
+      expect(precision).toBe('month');
    });
 
-   it('parses a date-only timestamp to midnight', () => {
-      const dt = parseTimestamp('1969-07-20');
+   it('parses a date-only timestamp to midnight with day precision', () => {
+      const { timestamp: dt, precision } = parseTimestamp('1969-07-20');
       expect(dt.year).toBe(1969);
       expect(dt.month).toBe(7);
       expect(dt.day).toBe(20);
       expect(dt.hour).toBe(0);
       expect(dt.minute).toBe(0);
       expect(dt.second).toBe(0);
+      expect(precision).toBe('day');
    });
 
-   it('parses a full datetime timestamp', () => {
-      const dt = parseTimestamp('1969-07-20T20:17:40');
+   it('parses a full datetime timestamp with datetime precision', () => {
+      const { timestamp: dt, precision } = parseTimestamp('1969-07-20T20:17:40');
       expect(dt.year).toBe(1969);
       expect(dt.month).toBe(7);
       expect(dt.day).toBe(20);
       expect(dt.hour).toBe(20);
       expect(dt.minute).toBe(17);
       expect(dt.second).toBe(40);
+      expect(precision).toBe('datetime');
    });
 
    it('parses a datetime with fractional seconds', () => {
-      const dt = parseTimestamp('1969-07-20T20:17:40.123');
+      const { timestamp: dt, precision } = parseTimestamp('1969-07-20T20:17:40.123');
       expect(dt.year).toBe(1969);
       expect(dt.hour).toBe(20);
       expect(dt.millisecond).toBe(123);
+      expect(precision).toBe('datetime');
    });
 
    it('parses a BCE timestamp with negative year', () => {
-      const dt = parseTimestamp('-000043-03-15');
+      const { timestamp: dt, precision } = parseTimestamp('-000043-03-15');
       expect(dt.year).toBe(-43);
       expect(dt.month).toBe(3);
       expect(dt.day).toBe(15);
+      expect(precision).toBe('day');
    });
 
    it('returns null for an invalid timestamp and warns', () => {
