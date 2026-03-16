@@ -543,7 +543,9 @@ function renderTickLabels(group, ticks, svgHeight, opacity, centerX) {
    clearGroup(group);
    group.setAttribute('opacity', String(opacity));
 
-   const labelY = svgHeight - 16;
+   // axisY = svgHeight - 14, major tick height = 8, so top of tick = svgHeight - 22
+   // Place baseline 4px above the top of the tick for a comfortable gap
+   const labelY = svgHeight - 26;
 
    for(const tick of ticks) {
       if(!tick.label) {
