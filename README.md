@@ -1,4 +1,4 @@
-# reveal-timeline-plugin
+# Timeline Reveal
 
 **A temporal compass for Reveal.js — animate your audience through time.**
 
@@ -6,13 +6,44 @@
 
 ## What it does
 
-reveal-timeline-plugin adds an animated SVG ticker to the bottom (or top) of your Reveal.js presentation. As you navigate between slides, the ticker smoothly pans and zooms across a temporal axis, acting as a compass that shows exactly where in time each slide lives. It fully supports nonlinear storytelling — slides can jump backward or forward in time and the ticker will follow — and handles dates from deep antiquity (BC) through the present and beyond.
+Timeline Reveal adds an animated SVG ticker to the bottom (or top) of your Reveal.js presentation. As you navigate between slides, the ticker smoothly pans and zooms across a the timeline, anchoring your audience in where they are in your timeline-based story. You can jump forward and backward in time, and define timestamps at the level of years, seconds, or anything in between.
 
-## Demo
+## Show me
 
 Open `demo/index.html` in a browser (no build step needed — it loads the plugin from `dist/`).
 
 ## Installation
+
+### From npm
+
+```sh
+npm install reveal-timeline-plugin
+```
+
+Then import in your JavaScript:
+
+```js
+import RevealTimeline from 'reveal-timeline-plugin';
+
+Reveal.initialize({
+  plugins: [RevealTimeline],
+  timeline: { /* ... */ },
+});
+```
+
+Or, for a plain `<script>` setup, reference the IIFE build from `node_modules`:
+
+```html
+<script src="node_modules/reveal-timeline-plugin/dist/reveal-timeline-plugin.iife.js"></script>
+```
+
+### From a CDN
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/reveal-timeline-plugin/dist/reveal-timeline-plugin.iife.js"></script>
+```
+
+### Manual
 
 Copy the built bundle into your project and include it after Reveal.js:
 
@@ -20,7 +51,7 @@ Copy the built bundle into your project and include it after Reveal.js:
 <script src="dist/reveal-timeline-plugin.iife.js"></script>
 ```
 
-The plugin bundles its own copy of the Temporal API via `@js-temporal/polyfill`. If your project already uses `@js-temporal/polyfill` you can build from source (see below) to share one instance; otherwise the bundled copy is self-contained.
+The plugin bundles its own copy of the [Temporal](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal) API via `@js-temporal/polyfill`. If your project already uses `@js-temporal/polyfill` you can build from source (see below) to share one instance; otherwise the bundled copy is self-contained.
 
 ## Quick Start
 

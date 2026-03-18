@@ -23,7 +23,11 @@
       "Bash(npm test:*)",
       "Bash(openspec new:*)",
       "Bash(openspec status:*)",
-      "Bash(openspec instructions:*)"
+      "Bash(openspec instructions:*)",
+      "Bash(git remote:*)",
+      "Bash(npm pack:*)",
+      "Bash(npm link:*)",
+      "Bash(node:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -1,13 +1,33 @@
 {
   "name": "reveal-timeline-plugin",
   "version": "0.1.0",
+  "description": "An animated timeline plugin for Reveal.js presentations",
+  "keywords": ["reveal.js", "plugin", "timeline", "presentation", "history"],
+  "author": "Tim Berglund",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tlberglund/timeline-reveal-plugin.git"
+  },
+  "homepage": "https://github.com/tlberglund/timeline-reveal-plugin#readme",
   "type": "module",
   "main": "dist/reveal-timeline-plugin.js",
   "module": "dist/reveal-timeline-plugin.js",
+  "exports": {
+    ".": {
+      "import": "./dist/reveal-timeline-plugin.js",
+      "default": "./dist/reveal-timeline-plugin.iife.js"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "peerDependencies": {
+    "reveal.js": ">=4"
+  },
   "scripts": {
     "build": "esbuild src/index.js --bundle --format=esm --outfile=dist/reveal-timeline-plugin.js",
     "build:iife": "esbuild src/index.js --bundle --format=iife --global-name=RevealTimeline --outfile=dist/reveal-timeline-plugin.iife.js --footer:js=RevealTimeline=RevealTimeline.default;",
     "build:iife:min": "esbuild src/index.js --bundle --format=iife --global-name=RevealTimeline --minify --outfile=dist/reveal-timeline-plugin.iife.min.js --footer:js=RevealTimeline=RevealTimeline.default;",
+    "prepublishOnly": "npm run build && npm run build:iife && npm run build:iife:min",
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
     "dev": "esbuild src/index.js --bundle --format=iife --global-name=RevealTimeline --outfile=dist/reveal-timeline-plugin.iife.js --footer:js=RevealTimeline=RevealTimeline.default; --watch"
   },
