@@ -86,6 +86,7 @@ const RevealTimeline = {
             spanMs,
             activeLayer,
             layerOpacity,
+            epochs: model.epochs,
          };
 
          renderTicker(svgEl, state, model, config);
@@ -110,7 +111,7 @@ const RevealTimeline = {
       if(initialEntry && initialEntry.temporal) {
          initialEntry.visited = true;
          renderInitial(initialEntry);
-         populatePlaceholders(initialEntry.slideEl, initialEntry.timestamp, initialEntry.precision, spanToString(initialEntry.parsedSpan), config.eraSuffix);
+         populatePlaceholders(initialEntry.slideEl, initialEntry.timestamp, initialEntry.precision, spanToString(initialEntry.parsedSpan), config.eraSuffix, model.epochs, initialEntry.epochIds);
          dispatchTimelineChange(revealEl, initialEntry.timestamp, initialEntry.spanMs, spanToString(initialEntry.parsedSpan));
       }
       else {
@@ -206,7 +207,7 @@ const RevealTimeline = {
          handleTemporal(entry);
 
          // Task 7.3: populate placeholders and dispatch event
-         populatePlaceholders(entry.slideEl, entry.timestamp, entry.precision, spanToString(entry.parsedSpan), config.eraSuffix);
+         populatePlaceholders(entry.slideEl, entry.timestamp, entry.precision, spanToString(entry.parsedSpan), config.eraSuffix, model.epochs, entry.epochIds);
          dispatchTimelineChange(revealEl, entry.timestamp, entry.spanMs, spanToString(entry.parsedSpan));
       });
 

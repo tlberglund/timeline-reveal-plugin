@@ -6,6 +6,7 @@ export const DEFAULT_CONFIG = {
    centerLineTop: 20,
    labelFormat: 'auto',
    noTimestamp: 'fade',
+   epochs: [],
    animation: {
       duration: 600,
       easing: 'ease-in-out',
@@ -32,6 +33,10 @@ export function resolveConfig(userConfig) {
       ...DEFAULT_CONFIG.eraSuffix,
       ...(userConfig.eraSuffix || {}),
    };
+
+   merged.epochs = Array.isArray(userConfig.epochs)
+      ? userConfig.epochs.map(e => ({ ...e }))
+      : [];
 
    return merged;
 }

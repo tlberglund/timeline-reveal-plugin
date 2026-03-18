@@ -60,10 +60,42 @@ export function parseTimestamp(str) {
    }
 }
 
+export function buildEpochModel(config) {
+   const epochs = config.epochs || [];
+   const result = [];
+
+   for(let lane = 0; lane < epochs.length; lane++) {
+      const e = epochs[lane];
+      const startParsed = parseTimestamp(e.start);
+      if(startParsed === null) {
+         console.warn('buildEpochModel: invalid start timestamp for epoch', e.id, ':', e.start);
+         continue;
+      }
+      const endParsed = parseTimestamp(e.end);
+      if(endParsed === null) {
+         console.warn('buildEpochModel: invalid end timestamp for epoch', e.id, ':', e.end);
+         continue;
+      }
+      result.push({
+         id: e.id,
+         label: e.label,
+         color: e.color,
+         lane,
+         startTimestamp: startParsed.timestamp,
+         endTimestamp: endParsed.timestamp,
+      });
+   }
+
+   return result;
+}
+
 export function buildTimelineModel(slides, config) {
+   const validEpochIds = new Set((config.epochs || []).map(e => e.id));
+
    const entries = slides.map((slideEl, slideIndex) => {
       const rawTimestamp = slideEl.dataset ? slideEl.dataset.timestamp : undefined;
       const rawSpan = slideEl.dataset ? slideEl.dataset.span : undefined;
+      const rawEpoch = slideEl.dataset ? slideEl.dataset.epoch : undefined;
 
       // Parse timestamp
       let timestamp = null;
@@ -101,6 +133,16 @@ export function buildTimelineModel(slides, config) {
          spanMs = spanToMilliseconds(parsedSpan);
       }
 
+      const epochIds = rawEpoch
+         ? rawEpoch.trim().split(/\s+/).filter(id => {
+            if(!validEpochIds.has(id)) {
+               console.warn('buildTimelineModel: slide', slideIndex, 'references unknown epoch id:', id);
+               return false;
+            }
+            return true;
+         })
+         : [];
+
       return {
          slideIndex,
          slideEl,
@@ -109,6 +151,7 @@ export function buildTimelineModel(slides, config) {
          precision,
          parsedSpan,
          spanMs,
+         epochIds,
          visited: false,
       };
    });
@@ -132,5 +175,6 @@ export function buildTimelineModel(slides, config) {
       temporalEntries,
       minTimestamp,
       maxTimestamp,
+      epochs: buildEpochModel(config),
    };
 }

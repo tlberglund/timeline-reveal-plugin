@@ -1,5 +1,5 @@
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import { parseTimestamp, buildTimelineModel } from '../timeline-model.js';
+import { parseTimestamp, buildTimelineModel, buildEpochModel } from '../timeline-model.js';
 import { DEFAULT_CONFIG } from '../config.js';
 
 const makeSlide = (timestamp, span) => ({ dataset: { timestamp, span } });
@@ -203,5 +203,86 @@ describe('buildTimelineModel', () => {
       const model = buildTimelineModel(slides, DEFAULT_CONFIG);
       expect(model.minTimestamp).toBeNull();
       expect(model.maxTimestamp).toBeNull();
+   });
+
+   it('stores epochIds on each entry from data-epoch attribute', () => {
+      const slide = { dataset: { timestamp: '2000', span: undefined, epoch: 'ai ml' } };
+      const config = { ...DEFAULT_CONFIG, epochs: [{ id: 'ai', label: 'AI', color: '#f00', start: '1950', end: '2000' }, { id: 'ml', label: 'ML', color: '#0f0', start: '1980', end: '2020' }] };
+      const model = buildTimelineModel([slide], config);
+      expect(model.entries[0].epochIds).toEqual(['ai', 'ml']);
+   });
+
+   it('stores empty epochIds when data-epoch is absent', () => {
+      const slides = [makeSlide('2000', undefined)];
+      const model = buildTimelineModel(slides, DEFAULT_CONFIG);
+      expect(model.entries[0].epochIds).toEqual([]);
+   });
+
+   it('warns and excludes unknown epoch ids from epochIds', () => {
+      const slide = { dataset: { timestamp: '2000', span: undefined, epoch: 'unknown' } };
+      const model = buildTimelineModel([slide], DEFAULT_CONFIG);
+      expect(model.entries[0].epochIds).toEqual([]);
+      expect(warnSpy).toHaveBeenCalled();
+   });
+});
+
+describe('buildEpochModel', () => {
+   let warnSpy;
+
+   beforeEach(() => {
+      warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+   });
+
+   afterEach(() => {
+      warnSpy.mockRestore();
+   });
+
+   it('returns empty array when no epochs configured', () => {
+      expect(buildEpochModel({ epochs: [] })).toEqual([]);
+      expect(buildEpochModel({})).toEqual([]);
+   });
+
+   it('parses epoch start and end timestamps', () => {
+      const config = { epochs: [{ id: 'ai', label: 'AI Era', color: '#f00', start: '1956', end: '2030' }] };
+      const epochs = buildEpochModel(config);
+      expect(epochs).toHaveLength(1);
+      expect(epochs[0].startTimestamp.year).toBe(1956);
+      expect(epochs[0].endTimestamp.year).toBe(2030);
+   });
+
+   it('assigns lane index matching config array order', () => {
+      const config = {
+         epochs: [
+            { id: 'a', label: 'A', color: '#f00', start: '1900', end: '1950' },
+            { id: 'b', label: 'B', color: '#0f0', start: '1940', end: '1990' },
+            { id: 'c', label: 'C', color: '#00f', start: '1980', end: '2020' },
+         ],
+      };
+      const epochs = buildEpochModel(config);
+      expect(epochs[0].lane).toBe(0);
+      expect(epochs[1].lane).toBe(1);
+      expect(epochs[2].lane).toBe(2);
+   });
+
+   it('preserves id, label, and color from config', () => {
+      const config = { epochs: [{ id: 'ai', label: 'AI Era', color: 'rgba(100,180,255,0.35)', start: '1956', end: '2030' }] };
+      const epochs = buildEpochModel(config);
+      expect(epochs[0].id).toBe('ai');
+      expect(epochs[0].label).toBe('AI Era');
+      expect(epochs[0].color).toBe('rgba(100,180,255,0.35)');
+   });
+
+   it('skips and warns on invalid start timestamp', () => {
+      const config = { epochs: [{ id: 'bad', label: 'Bad', color: '#f00', start: 'not-a-date', end: '2000' }] };
+      const epochs = buildEpochModel(config);
+      expect(epochs).toHaveLength(0);
+      expect(warnSpy).toHaveBeenCalled();
+   });
+
+   it('skips and warns on invalid end timestamp', () => {
+      const config = { epochs: [{ id: 'bad', label: 'Bad', color: '#f00', start: '1950', end: 'not-a-date' }] };
+      const epochs = buildEpochModel(config);
+      expect(epochs).toHaveLength(0);
+      expect(warnSpy).toHaveBeenCalled();
    });
 });

@@ -19,6 +19,9 @@ const TICK_INTERVAL_TABLE = [
 
 const DEFAULT_TICK_INTERVAL = { unit: 'year', value: 500 };
 
+const EPOCH_LANE_HEIGHT = 14;
+const AXIS_BOTTOM_MARGIN = 14;
+
 const CSS = `
 @layer reveal-timeline {
   :root {
@@ -32,6 +35,7 @@ const CSS = `
     --tl-font-size: 11px;
     --tl-line-width: 1;
     --tl-center-line-width: 2;
+    --tl-epoch-label-color: rgba(255,255,255,0.9);
   }
   .tl-ticker {
     position: absolute;
@@ -122,6 +126,11 @@ export function injectTicker(revealEl, config) {
    const svg = document.createElementNS(SVG_NS, 'svg');
    svg.setAttribute('class', 'tl-ticker');
    svg.setAttribute('xmlns', SVG_NS);
+
+   // Epoch bars layer (lowest z-order)
+   const epochsGroup = document.createElementNS(SVG_NS, 'g');
+   epochsGroup.setAttribute('class', 'tl-epochs');
+   svg.appendChild(epochsGroup);
 
    // Axis layer
    const axisGroup = document.createElementNS(SVG_NS, 'g');
@@ -459,13 +468,22 @@ export function renderTicker(svgElement, state, model, config) {
 
    const { centerTimestamp, precision, spanMs, activeLayer, layerOpacity } = state;
 
+   const epochs = model.epochs || [];
+   const epochZoneHeight = epochs.length * EPOCH_LANE_HEIGHT;
+   const axisY = height - AXIS_BOTTOM_MARGIN - epochZoneHeight;
+
    const ticks = computeTicks(centerTimestamp, spanMs, width, config.eraSuffix);
+
+   // ── Epoch bars ─────────────────────────────────────────────────────────────
+   const epochsGroup = svgElement.querySelector('.tl-epochs');
+   if(epochsGroup) {
+      renderEpochBars(epochsGroup, epochs, centerTimestamp, spanMs, width, axisY);
+   }
 
    // ── Axis line ──────────────────────────────────────────────────────────────
    const axisGroup = svgElement.querySelector('.tl-axis');
    if(axisGroup) {
       clearGroup(axisGroup);
-      const axisY = height - 14;
       const line = svgEl('line', {
          class: 'tl-axis-line',
          x1: '0', y1: axisY,
@@ -479,7 +497,7 @@ export function renderTicker(svgElement, state, model, config) {
    // ── Tick lines ─────────────────────────────────────────────────────────────
    const ticksGroup = svgElement.querySelector('.tl-ticks');
    if(ticksGroup) {
-      renderTickLines(ticksGroup, ticks, height);
+      renderTickLines(ticksGroup, ticks, axisY);
    }
 
    // ── Labels (crossfade layers) ──────────────────────────────────────────────
@@ -493,11 +511,11 @@ export function renderTicker(svgElement, state, model, config) {
       // Render ticks into the active layer; the inactive layer retains previous content
       const centerX = width / 2;
       if(activeLayer === 'a') {
-         renderTickLabels(labelsA, ticks, height, opA, centerX);
+         renderTickLabels(labelsA, ticks, axisY, opA, centerX);
          labelsB.setAttribute('opacity', String(opB));
       }
       else {
-         renderTickLabels(labelsB, ticks, height, opB, centerX);
+         renderTickLabels(labelsB, ticks, axisY, opB, centerX);
          labelsA.setAttribute('opacity', String(opA));
       }
    }
@@ -505,21 +523,86 @@ export function renderTicker(svgElement, state, model, config) {
    // ── Dot markers ───────────────────────────────────────────────────────────
    const dotsGroup = svgElement.querySelector('.tl-dots');
    if(dotsGroup) {
-      updateDotMarkers(dotsGroup, model, centerTimestamp, spanMs, width, height, config);
+      updateDotMarkers(dotsGroup, model, centerTimestamp, spanMs, width, axisY, config);
    }
 
    // ── Center marker ─────────────────────────────────────────────────────────
    const centerGroup = svgElement.querySelector('.tl-center');
    if(centerGroup) {
-      renderCenterMarker(centerGroup, width, height, centerTimestamp, precision, config);
+      renderCenterMarker(centerGroup, width, axisY, centerTimestamp, precision, config);
+   }
+}
+
+// ─── Epoch Bars ───────────────────────────────────────────────────────────────
+
+const EPOCH_LABEL_MIN_WIDTH = 40;
+const EPOCH_LABEL_PADDING = 6;
+
+function renderEpochBars(group, epochs, centerTimestamp, spanMs, svgWidth, axisY) {
+   clearGroup(group);
+
+   if(!epochs || epochs.length === 0) {
+      return;
+   }
+
+   const centerMs = plainDateTimeToMs(centerTimestamp);
+   const centerX = svgWidth / 2;
+
+   for(const epoch of epochs) {
+      const startMs = plainDateTimeToMs(epoch.startTimestamp);
+      const endMs = plainDateTimeToMs(epoch.endTimestamp);
+
+      const startX = centerX + (startMs - centerMs) / spanMs * svgWidth;
+      const endX = centerX + (endMs - centerMs) / spanMs * svgWidth;
+
+      // Skip if entirely off-screen
+      if(endX <= 0 || startX >= svgWidth) {
+         continue;
+      }
+
+      const rectX = Math.max(startX, 0);
+      const rectWidth = Math.min(endX, svgWidth) - rectX;
+
+      if(rectWidth <= 0) {
+         continue;
+      }
+
+      const barY = axisY + AXIS_BOTTOM_MARGIN + epoch.lane * EPOCH_LANE_HEIGHT;
+
+      const rect = svgEl('rect', {
+         class: 'tl-epoch-bar',
+         x: rectX,
+         y: barY,
+         width: rectWidth,
+         height: EPOCH_LANE_HEIGHT,
+         fill: epoch.color,
+      });
+      group.appendChild(rect);
+
+      // Pinned label
+      const labelX = Math.max(startX, 0) + EPOCH_LABEL_PADDING;
+      const visibleRight = Math.min(endX, svgWidth) - EPOCH_LABEL_PADDING;
+
+      if(visibleRight - labelX >= EPOCH_LABEL_MIN_WIDTH) {
+         const labelY = barY + EPOCH_LANE_HEIGHT / 2;
+         const text = svgEl('text', {
+            class: 'tl-epoch-label',
+            x: labelX,
+            y: labelY,
+            'dominant-baseline': 'middle',
+            fill: 'var(--tl-epoch-label-color)',
+            'font-size': 'var(--tl-font-size)',
+         });
+         text.textContent = epoch.label;
+         group.appendChild(text);
+      }
    }
 }
 
 // ─── Tick Lines ───────────────────────────────────────────────────────────────
 
-function renderTickLines(group, ticks, svgHeight) {
+function renderTickLines(group, ticks, axisY) {
    clearGroup(group);
-   const axisY = svgHeight - 14;
 
    for(const tick of ticks) {
       const isMajor = tick.label !== '';
@@ -539,13 +622,13 @@ function renderTickLines(group, ticks, svgHeight) {
 
 const CENTER_LABEL_SUPPRESS_RADIUS = 20;
 
-function renderTickLabels(group, ticks, svgHeight, opacity, centerX) {
+function renderTickLabels(group, ticks, axisY, opacity, centerX) {
    clearGroup(group);
    group.setAttribute('opacity', String(opacity));
 
-   // axisY = svgHeight - 14, major tick height = 8, so top of tick = svgHeight - 22
-   // Place baseline 4px above the top of the tick for a comfortable gap
-   const labelY = svgHeight - 26;
+   // Major tick height = 8, so top of major tick = axisY - 8.
+   // Place baseline 4px above the top of the tick for a comfortable gap.
+   const labelY = axisY - 12;
 
    for(const tick of ticks) {
       if(!tick.label) {
@@ -572,11 +655,10 @@ function renderTickLabels(group, ticks, svgHeight, opacity, centerX) {
 /**
  * Renders the center marker: a vertical line + optional label.
  */
-export function renderCenterMarker(centerGroup, svgWidth, svgHeight, centerTimestamp, precision, config) {
+export function renderCenterMarker(centerGroup, svgWidth, axisY, centerTimestamp, precision, config) {
    clearGroup(centerGroup);
 
    const cx = svgWidth / 2;
-   const axisY = svgHeight - 14;
    const labelHeight = 16;
 
    // Label at top of center line (rendered first so line draws over its bottom edge)
@@ -644,7 +726,7 @@ function formatCenterLabel(pdt, precision, eraSuffix) {
 /**
  * Renders dot markers for all temporal entries in the model.
  */
-export function updateDotMarkers(dotsGroup, model, centerTimestamp, spanMs, svgWidth, svgHeight, config) {
+export function updateDotMarkers(dotsGroup, model, centerTimestamp, spanMs, svgWidth, axisY, config) {
    clearGroup(dotsGroup);
 
    if(!model || !model.temporalEntries) {
@@ -653,7 +735,7 @@ export function updateDotMarkers(dotsGroup, model, centerTimestamp, spanMs, svgW
 
    const centerMs = plainDateTimeToMs(centerTimestamp);
    const centerX = svgWidth / 2;
-   const dotY = svgHeight - 14; // on the axis line
+   const dotY = axisY; // on the axis line
 
    for(const entry of model.temporalEntries) {
       const entryMs = plainDateTimeToMs(entry.timestamp);

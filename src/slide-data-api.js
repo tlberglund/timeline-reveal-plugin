@@ -1,13 +1,30 @@
 import { Temporal } from '@js-temporal/polyfill';
 
 // Task 6.1
-export function populatePlaceholders(slideEl, timestamp, precision, spanString, eraSuffix) {
+export function populatePlaceholders(slideEl, timestamp, precision, spanString, eraSuffix, epochs, epochIds) {
    const tsEls = slideEl.querySelectorAll('.tl-timestamp');
    const labelEls = slideEl.querySelectorAll('.tl-label');
    const tsText = timestamp ? formatTimestampForDisplay(timestamp, precision, eraSuffix || { bc: 'BC', ad: 'AD' }) : '';
    const labelText = spanString || '';
    tsEls.forEach(el => el.textContent = tsText);
    labelEls.forEach(el => el.textContent = labelText);
+
+   const epochEls = slideEl.querySelectorAll('.tl-epoch');
+   const matchedEpochs = epochs && epochIds
+      ? epochs.filter(e => epochIds.includes(e.id))
+      : [];
+
+   epochEls.forEach(container => {
+      // Clear previously injected content
+      while(container.firstChild) container.removeChild(container.firstChild);
+
+      for(const epoch of matchedEpochs) {
+         const span = document.createElement('span');
+         span.className = `tl-epoch-item tl-epoch-${epoch.id}`;
+         span.textContent = epoch.label;
+         container.appendChild(span);
+      }
+   });
 }
 
 // Task 6.2
@@ -54,5 +71,5 @@ export function dispatchTimelineChange(deckEl, timestamp, spanMs, spanString) {
 
 // Task 6.4
 export function clearPlaceholders(slideEl, eraSuffix) {
-   populatePlaceholders(slideEl, null, null, eraSuffix);
+   populatePlaceholders(slideEl, null, null, null, eraSuffix, [], []);
 }
