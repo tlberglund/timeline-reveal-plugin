@@ -1,8 +1,14 @@
 {
   "name": "reveal-timeline-plugin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "An animated timeline plugin for Reveal.js presentations",
-  "keywords": ["reveal.js", "plugin", "timeline", "presentation", "history"],
+  "keywords": [
+    "reveal.js",
+    "plugin",
+    "timeline",
+    "presentation",
+    "history"
+  ],
   "author": "Tim Berglund",
   "license": "MIT",
   "repository": {
@@ -19,7 +25,11 @@
       "default": "./dist/reveal-timeline-plugin.iife.js"
     }
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "peerDependencies": {
     "reveal.js": ">=4"
   },
