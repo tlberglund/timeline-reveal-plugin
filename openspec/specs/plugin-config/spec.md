@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Defines how the plugin is registered with Reveal.js and which presentation-wide options it accepts.
+
+## Requirements
 
 ### Requirement: Plugin registered via standard Reveal.js plugin interface
 The plugin SHALL be registered and configured through `Reveal.initialize()` using the standard Reveal.js plugin mechanism.

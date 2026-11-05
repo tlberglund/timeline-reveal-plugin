@@ -151,6 +151,7 @@ Add elements with these classes anywhere inside a slide and the plugin will popu
 |---|---|
 | `.tl-timestamp` | Full human-readable date-time string (e.g. `Jul 20, 1969 20:17`) |
 | `.tl-label` | Human-readable date without time component (e.g. `Jul 20, 1969`) |
+| `.tl-epoch` | One `<span class="tl-epoch-item tl-epoch-<id>">` per epoch containing the slide (see [Epochs](#epochs)) |
 
 ```html
 <section data-timestamp="1969-07-20T20:17:40" data-span="3 days">
@@ -159,6 +160,31 @@ Add elements with these classes anywhere inside a slide and the plugin will popu
   <p>Date: <span class="tl-label"></span></p>
 </section>
 ```
+
+### Overview Slides
+
+An overview slide zooms out to show a stretch of time, with every epoch displayed, instead of focusing on a single moment. There are two ways to make one:
+
+```html
+<!-- Explicit range -->
+<section data-timestamp-start="1900" data-timestamp-end="1999">
+
+<!-- Fit automatically to the extent of every configured epoch (with 5% padding) -->
+<section data-overview>
+```
+
+The end of a range includes the whole unit you wrote, so `data-timestamp-end="1999"` runs through December 31, 1999. If both forms are present, the explicit range wins.
+
+On an overview slide:
+
+- The ticker stays visible regardless of `noTimestamp`.
+- All epochs are shown.
+- The center marker and center label fade out, and the range's start and end appear at the left and right edges.
+- The slide gets no dot on the ticker and doesn't count toward the timeline's extents.
+- `.tl-timestamp` shows the range (e.g. `1900 – 1999`), and `.tl-epoch` lists every epoch.
+- `timeline:change` reports `timestamp: null` and a `range` (see below).
+
+A range with a missing, unparseable or inverted bound logs a console warning, and the slide is treated as an ordinary non-temporal slide.
 
 ### `timeline:change` Event
 
@@ -174,11 +200,13 @@ The `detail` object shape:
 
 ```js
 {
-  timestamp: Temporal.PlainDateTime | null,  // null for non-temporal slides
-  span: Temporal.Duration | null,            // null for non-temporal slides
+  timestamp: Temporal.PlainDateTime | null,  // null for non-temporal and overview slides
+  timestampISO: string | null,               // ISO 8601 form of timestamp
+  span: number | null,                       // visible span in milliseconds
   spanString: string | null,                 // e.g. "3 days", null for non-temporal
-  slideIndex: number,                        // zero-based index in the flat slide list
-  isTemporal: boolean,                       // false for slides without data-timestamp
+  isTemporal: boolean,                       // true only for slides with a data-timestamp
+  range: { start, end } | null,              // overview slides only: Temporal.PlainDateTime
+                                             // bounds, start inclusive and end exclusive
 }
 ```
 
@@ -203,6 +231,8 @@ Reveal.initialize({
       bc: 'BCE',
       ad: 'CE',
     },
+    epochStyle: 'line',
+    epochs: [ /* see Epochs below */ ],
   },
 });
 ```
@@ -211,13 +241,51 @@ Reveal.initialize({
 |---|---|---|---|
 | `defaultSpan` | `string` | `'10 years'` | Visible time window used when a slide has no `data-span` attribute. Accepts the same natural-language format as `data-span`. |
 | `position` | `'bottom'` \| `'top'` | `'bottom'` | Whether the ticker is pinned to the bottom or top of the presentation viewport. |
-| `height` | `number` | `56` | Height of the ticker SVG in pixels. |
+| `height` | `number` | `56` | Height of the ticker SVG in pixels, not counting epochs. Each configured epoch adds a 14px lane. |
 | `centerLabel` | `boolean` | `true` | When `true`, the center marker shows the current timestamp as a text label below the axis. |
 | `noTimestamp` | `'fade'` \| `'hide'` \| `'freeze'` | `'fade'` | Behaviour when navigating to a non-temporal slide. `'fade'` reduces ticker opacity; `'hide'` removes it from the DOM; `'freeze'` leaves it visible at the last position. |
 | `animation.duration` | `number` | `600` | Duration of the pan/zoom animation in milliseconds. |
 | `animation.easing` | `string` | `'ease-in-out'` | CSS easing name used to drive the animation curve. |
 | `eraSuffix.bc` | `string` | `'BC'` | Text appended to negative-year tick labels and center labels. |
 | `eraSuffix.ad` | `string` | `'AD'` | Text appended to positive-year tick labels when the era is shown explicitly. |
+| `epochs` | `array` | `[]` | Named spans of time drawn on the ticker. See [Epochs](#epochs). |
+| `epochStyle` | `'bar'` \| `'line'` | `'bar'` | `'bar'` draws filled bars below the axis with the name inside. `'line'` draws thin lines above the ticker with the name just before the line's start. |
+
+## Epochs
+
+Epochs are named spans of time (eras) drawn as bars or lines on the ticker. They can overlap.
+
+```js
+timeline: {
+  epochStyle: 'line',
+  epochs: [
+    { id: 'world-wars', label: 'The World Wars', start: '1914-07-28', end: '1945-09-02', color: '#ef6f6f' },
+    { id: 'cold-war',   label: 'Cold War',       start: '1947-03-12', end: '1991-12-26' },
+    { id: 'space-race', label: 'Space Race',     start: '1957-10-04', end: '1975-07-17' },
+  ],
+}
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `id` | yes | Unique identifier, also used in the `tl-epoch-<id>` CSS class. |
+| `label` | yes | Display name. |
+| `start` | yes | Timestamp in the same formats as `data-timestamp`. The epoch starts at the beginning of that unit. |
+| `end` | yes | Timestamp; the epoch runs **through the end of the unit written**. `"1945"` covers all of 1945, `"1945-08"` all of August, `"1945-09-02"` that whole day. |
+| `color` | no | Any CSS color. Without one, the epoch uses `--tl-epoch-color`. |
+
+**Lanes.** Each epoch has its own lane, in array order with the first at the top. Lanes never move or collapse, so an epoch is always at the same height. Each epoch adds 14px to the ticker.
+
+**Which epochs are shown.** A slide belongs to every epoch whose `start ≤ data-timestamp < end`, and only those epochs are shown on that slide. The others fade out in place as you navigate. Overview slides show every epoch.
+
+**Styling.** Every epoch bar or line has the classes `tl-epoch-bar` or `tl-epoch-line`, plus `tl-epoch-<id>`. A configured `color` is applied as the `--tl-epoch-color` custom property, not as an inline fill, so epochs without a `color` can be colored from CSS. The same `tl-epoch-<id>` class is on the `.tl-epoch` placeholder spans, so one rule colors an era in both the ticker and the slide text:
+
+```css
+.tl-epoch-cold-war { --tl-epoch-color: #7fd8ff; }
+.tl-epoch-item     { color: var(--tl-epoch-color); }
+```
+
+An epoch with an unparseable or inverted `start`/`end` logs a console warning and is skipped.
 
 ## CSS Custom Properties
 
@@ -240,6 +308,9 @@ All ticker colours, sizes, and fonts are controlled by CSS custom properties set
 | `--tl-dot-unvisited` | `rgba(255,255,255,0.25)` | Fill colour of dots representing not-yet-visited temporal slides. |
 | `--tl-dot-current` | `#4af` | Fill colour of the dot representing the currently active slide. |
 | `--tl-font-size` | `11px` | Font size for all ticker text elements. |
+| `--tl-epoch-color` | `rgba(255,255,255,0.35)` | Colour of epoch bars and lines without a configured `color`. |
+| `--tl-epoch-line-width` | `3px` | Thickness of epoch lines in the `'line'` style. |
+| `--tl-epoch-label-color` | `rgba(255,255,255,0.9)` | Colour of epoch names on the ticker. |
 
 ## BC Dates
 
@@ -251,6 +322,13 @@ The plugin uses **astronomical year numbering**, which is the convention used by
 - Year `-43` = 44 BC
 
 So the ISO string for the Ides of March (44 BC) is `-000043-03-15`. The plugin automatically converts these to conventional BC display in tick labels and center labels (e.g. `44 BC`).
+
+## Upgrading from 0.1
+
+- **`data-epoch` is gone.** Epoch membership is now derived from each slide's timestamp. Remove the attribute; the plugin logs one warning if it finds any.
+- **Epoch ends include the whole unit written.** `end: "1945"` used to mean January 1, 1945; it now runs through December 31, 1945. Re-check end dates.
+- **The ticker grows to fit epochs** rather than squeezing them into `height`. Undo any `height` increase you added only to make room for epochs.
+- **Epoch `color` is optional** and is applied via `--tl-epoch-color` rather than an inline `fill`.
 
 ## Building from Source
 

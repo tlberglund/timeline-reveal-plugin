@@ -5,9 +5,7 @@ import { buildTimelineModel } from './timeline-model.js';
 import {
    injectTicker,
    renderTicker,
-   renderCenterMarker,
-   updateDotMarkers,
-   computeTicks,
+   resetEpochLabelCache,
 } from './ticker-renderer.js';
 import {
    AnimationController,
@@ -17,6 +15,7 @@ import {
 } from './animation.js';
 import {
    populatePlaceholders,
+   populateOverviewPlaceholders,
    clearPlaceholders,
    formatTimestampForDisplay,
    dispatchTimelineChange,
@@ -30,11 +29,18 @@ const RevealTimeline = {
       const userConfig = (deck.getConfig && deck.getConfig().timeline) || {};
       const config = resolveConfig(userConfig);
 
-      const slides = deck.getSlides();
+      // Reveal may not have marked vertical-stack parents with .stack yet when
+      // plugins initialize, so getSlides() can still include them. Keep only
+      // real slides (sections without child sections).
+      const slides = deck.getSlides().filter(s => !s.querySelector(':scope > section'));
       const model = buildTimelineModel(slides, config);
 
+      function entryForSlide(slideEl) {
+         return model.entries.find(e => e.slideEl === slideEl) || null;
+      }
+
       const revealEl = deck.getRevealElement();
-      const svgEl = injectTicker(revealEl, config);
+      const svgEl = injectTicker(revealEl, config, model.epochs.length);
 
       // Animation state
       // activeLayer tracks which label layer (a or b) is the "live" one
@@ -43,6 +49,33 @@ const RevealTimeline = {
       let currentTimestamp = null;
       let currentSpanMs = null;
       let currentPrecision = null;
+      // Named opacities: 'overview' plus one 'epoch:<id>' per epoch
+      let currentFades = {};
+      // Range of the most recent overview slide, kept while its edge labels fade out
+      let currentRange = null;
+
+      function targetFades(entry) {
+         const fades = { overview: entry.overview ? 1 : 0 };
+         for(const epoch of model.epochs) {
+            fades['epoch:' + epoch.id] = entry.epochIds.includes(epoch.id) ? 1 : 0;
+         }
+         return fades;
+      }
+
+      function fadesEqual(a, b) {
+         const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+         for(const key of keys) {
+            if((a[key] || 0) !== (b[key] || 0)) return false;
+         }
+         return true;
+      }
+
+      // Where the viewport goes for an entry: its timestamp, or an overview's center
+      function viewFor(entry) {
+         return entry.overview
+            ? { timestamp: entry.center, spanMs: entry.spanMs, precision: currentPrecision }
+            : { timestamp: entry.timestamp, spanMs: entry.spanMs, precision: entry.precision };
+      }
 
       // For label crossfade: track the interval key of the current render
       let currentIntervalKey = null;
@@ -61,7 +94,11 @@ const RevealTimeline = {
          return 'year-500';
       }
 
-      function renderFrame(timestamp, spanMs, animT, precision) {
+      function renderFrame(timestamp, spanMs, animT, precision, fades) {
+         if(fades) {
+            currentFades = fades;
+         }
+
          // Determine if label crossfade is needed
          const newKey = getIntervalKey(spanMs);
          const formatChanged = newKey !== currentIntervalKey;
@@ -86,33 +123,55 @@ const RevealTimeline = {
             spanMs,
             activeLayer,
             layerOpacity,
-            epochs: model.epochs,
+            fades: currentFades,
+            range: currentRange,
          };
 
          renderTicker(svgEl, state, model, config);
       }
 
       function renderInitial(entry) {
-         if(!entry || !entry.temporal) return;
-         currentTimestamp = entry.timestamp;
-         currentSpanMs = entry.spanMs;
-         currentPrecision = entry.precision;
+         const view = viewFor(entry);
+         if(entry.overview) {
+            currentRange = rangeFor(entry);
+         }
+         currentTimestamp = view.timestamp;
+         currentSpanMs = view.spanMs;
+         currentPrecision = view.precision;
          currentIntervalKey = getIntervalKey(currentSpanMs);
          layerOpacity = { a: 1, b: 0 };
          activeLayer = 'a';
-         renderFrame(currentTimestamp, currentSpanMs, null, currentPrecision);
+         renderFrame(currentTimestamp, currentSpanMs, null, currentPrecision, targetFades(entry));
+      }
+
+      function rangeFor(entry) {
+         return {
+            start: entry.rangeStart,
+            startPrecision: entry.rangeStartPrecision,
+            end: entry.rangeEndAuthored,
+            endPrecision: entry.rangeEndPrecision,
+         };
+      }
+
+      function publishEntry(entry) {
+         if(entry.overview) {
+            populateOverviewPlaceholders(entry.slideEl, entry, config.eraSuffix, model.epochs);
+            dispatchTimelineChange(revealEl, null, null, null, { start: entry.rangeStart, end: entry.rangeEnd });
+         }
+         else {
+            populatePlaceholders(entry.slideEl, entry.timestamp, entry.precision, spanToString(entry.parsedSpan), config.eraSuffix, model.epochs, entry.epochIds);
+            dispatchTimelineChange(revealEl, entry.timestamp, entry.spanMs, spanToString(entry.parsedSpan));
+         }
       }
 
       // --- Task 7.2: Render initial state ---
-      const initialState = deck.getState();
-      const initialIndex = initialState ? (initialState.indexh || 0) : 0;
-      const initialEntry = model.entries[initialIndex] || model.entries[0];
+      const initialSlide = deck.getCurrentSlide ? deck.getCurrentSlide() : null;
+      const initialEntry = (initialSlide && entryForSlide(initialSlide)) || model.entries[0];
 
-      if(initialEntry && initialEntry.temporal) {
+      if(initialEntry && (initialEntry.temporal || initialEntry.overview)) {
          initialEntry.visited = true;
          renderInitial(initialEntry);
-         populatePlaceholders(initialEntry.slideEl, initialEntry.timestamp, initialEntry.precision, spanToString(initialEntry.parsedSpan), config.eraSuffix, model.epochs, initialEntry.epochIds);
-         dispatchTimelineChange(revealEl, initialEntry.timestamp, initialEntry.spanMs, spanToString(initialEntry.parsedSpan));
+         publishEntry(initialEntry);
       }
       else {
          // Non-temporal first slide: fade out ticker
@@ -123,14 +182,14 @@ const RevealTimeline = {
       const animController = new AnimationController(
          config,
          // onFrame: called each rAF
-         ({ timestamp, spanMs, t }) => {
-            renderFrame(timestamp, spanMs, t);
+         ({ timestamp, spanMs, t, fades }) => {
+            renderFrame(timestamp, spanMs, t, null, fades);
          },
          // onComplete: called when animation finishes
-         ({ timestamp, spanMs }) => {
+         ({ timestamp, spanMs, fades }) => {
             currentTimestamp = timestamp;
             currentSpanMs = spanMs;
-            renderFrame(timestamp, spanMs, null);
+            renderFrame(timestamp, spanMs, null, null, fades);
          }
       );
 
@@ -156,26 +215,31 @@ const RevealTimeline = {
          svgEl.style.transition = `opacity ${config.animation.duration}ms ease`;
          svgEl.style.opacity = '1';
 
+         const view = viewFor(entry);
+         if(entry.overview) {
+            currentRange = rangeFor(entry);
+         }
+
          const from = currentTimestamp
-            ? { timestamp: currentTimestamp, spanMs: currentSpanMs }
+            ? { timestamp: currentTimestamp, spanMs: currentSpanMs, fades: currentFades }
             : null;
 
-         const to = { timestamp: entry.timestamp, spanMs: entry.spanMs };
+         const to = { timestamp: view.timestamp, spanMs: view.spanMs, fades: targetFades(entry) };
 
          // Always record the destination as current so the next transition has a valid from
-         currentTimestamp = entry.timestamp;
-         currentSpanMs = entry.spanMs;
-         currentPrecision = entry.precision;
+         currentTimestamp = view.timestamp;
+         currentSpanMs = view.spanMs;
+         currentPrecision = view.precision;
 
          // No previous position — snap directly to the destination
          if(!from) {
-            renderFrame(to.timestamp, to.spanMs, null);
+            renderFrame(to.timestamp, to.spanMs, null, null, to.fades);
             return;
          }
 
-         // Already at same position — re-render in place
-         if(Temporal.PlainDateTime.compare(from.timestamp, to.timestamp) === 0 && from.spanMs === to.spanMs) {
-            renderFrame(to.timestamp, to.spanMs, null);
+         // Already at the same position with nothing to fade — re-render in place
+         if(Temporal.PlainDateTime.compare(from.timestamp, to.timestamp) === 0 && from.spanMs === to.spanMs && fadesEqual(from.fades, to.fades)) {
+            renderFrame(to.timestamp, to.spanMs, null, null, to.fades);
             return;
          }
 
@@ -183,14 +247,12 @@ const RevealTimeline = {
       }
 
       // --- Task 7.3: slidechanged event handler ---
-      deck.on('slidechanged', ({ indexh, indexv }) => {
-         // Find model entry by slide index
-         // deck.getSlides() returns a flat list
-         const flatSlides = deck.getSlides();
-         const idx = flatSlides.indexOf(deck.getCurrentSlide ? deck.getCurrentSlide() : flatSlides[indexh]);
-         const entry = model.entries[idx] || model.entries[indexh] || null;
+      deck.on('slidechanged', ({ currentSlide }) => {
+         // Find the model entry by slide element; indices can disagree with
+         // getSlides() when vertical stacks are present.
+         const entry = entryForSlide(currentSlide || deck.getCurrentSlide());
 
-         if(!entry || !entry.temporal) {
+         if(!entry || !(entry.temporal || entry.overview)) {
             // Task 7.4: non-temporal slide
             const currentSlideEl = deck.getCurrentSlide ? deck.getCurrentSlide() : null;
             if(currentSlideEl) clearPlaceholders(currentSlideEl, config.eraSuffix);
@@ -204,15 +266,16 @@ const RevealTimeline = {
             entry.visited = true;
          }
 
+         // Overview slides take the same animated path as temporal ones, which
+         // also keeps the ticker visible regardless of noTimestamp.
          handleTemporal(entry);
-
-         // Task 7.3: populate placeholders and dispatch event
-         populatePlaceholders(entry.slideEl, entry.timestamp, entry.precision, spanToString(entry.parsedSpan), config.eraSuffix, model.epochs, entry.epochIds);
-         dispatchTimelineChange(revealEl, entry.timestamp, entry.spanMs, spanToString(entry.parsedSpan));
+         publishEntry(entry);
       });
 
       // --- Task 7.6: resize handler ---
       deck.on('resize', () => {
+         // Font size may have changed with the viewport; re-measure epoch labels.
+         resetEpochLabelCache();
          if(currentTimestamp && currentSpanMs) {
             renderFrame(currentTimestamp, currentSpanMs, null);
          }

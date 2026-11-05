@@ -22,9 +22,28 @@ export function populatePlaceholders(slideEl, timestamp, precision, spanString, 
          const span = document.createElement('span');
          span.className = `tl-epoch-item tl-epoch-${epoch.id}`;
          span.textContent = epoch.label;
+         if(epoch.color && span.style) {
+            span.style.setProperty('--tl-epoch-color', epoch.color);
+         }
          container.appendChild(span);
       }
    });
+}
+
+/**
+ * Populates placeholders on an overview slide: .tl-timestamp shows the range,
+ * .tl-label is cleared, and .tl-epoch lists every epoch.
+ */
+export function populateOverviewPlaceholders(slideEl, entry, eraSuffix, epochs) {
+   populatePlaceholders(slideEl, null, null, null, eraSuffix, epochs, entry.epochIds);
+   const rangeText = formatRangeForDisplay(entry, eraSuffix || { bc: 'BC', ad: 'AD' });
+   slideEl.querySelectorAll('.tl-timestamp').forEach(el => el.textContent = rangeText);
+}
+
+export function formatRangeForDisplay(entry, eraSuffix) {
+   const start = formatTimestampForDisplay(entry.rangeStart, entry.rangeStartPrecision, eraSuffix);
+   const end = formatTimestampForDisplay(entry.rangeEndAuthored, entry.rangeEndPrecision, eraSuffix);
+   return `${start} – ${end}`;
 }
 
 // Task 6.2
@@ -56,7 +75,7 @@ export function formatTimestampForDisplay(pdt, precision, eraSuffix) {
 }
 
 // Task 6.3
-export function dispatchTimelineChange(deckEl, timestamp, spanMs, spanString) {
+export function dispatchTimelineChange(deckEl, timestamp, spanMs, spanString, range) {
    const event = new CustomEvent('timeline:change', {
       bubbles: true,
       detail: {
@@ -64,6 +83,8 @@ export function dispatchTimelineChange(deckEl, timestamp, spanMs, spanString) {
          timestampISO: timestamp ? timestamp.toString() : null,
          span: spanMs || null,
          spanString: spanString || null,
+         isTemporal: !!timestamp,
+         range: range || null,
       },
    });
    deckEl.dispatchEvent(event);

@@ -60,6 +60,21 @@ export function logLerp(a, b, t) {
    return Math.exp(lerp(Math.log(a), Math.log(b), t));
 }
 
+/**
+ * Linearly interpolates a map of named opacities (e.g. per-epoch visibility).
+ * Keys missing on either side are treated as 0.
+ */
+export function lerpFades(from, to, t) {
+   const result = {};
+   const keys = new Set([...Object.keys(from || {}), ...Object.keys(to || {})]);
+   for(const key of keys) {
+      const a = (from && from[key] != null) ? from[key] : 0;
+      const b = (to && to[key] != null) ? to[key] : 0;
+      result[key] = lerp(a, b, t);
+   }
+   return result;
+}
+
 // ─── Easing ───────────────────────────────────────────────────────────────────
 
 export function resolveEasing(easingConfig) {
@@ -97,6 +112,8 @@ export class AnimationController {
       this._easing = null;
       this._currentMs = null;
       this._currentSpanMs = null;
+      this._fromFades = null;
+      this._currentFades = null;
    }
 
    start(from, to) {
@@ -122,24 +139,27 @@ export class AnimationController {
       this._startTime = null;
       this._currentMs = this._fromMs;
       this._currentSpanMs = this._fromSpanMs;
+      this._fromFades = from.fades || {};
+      this._currentFades = this._fromFades;
 
       const tick = (now) => {
          if(this._startTime === null) {
             this._startTime = now;
          }
          const elapsed = now - this._startTime;
-         const t = Math.min(1, elapsed / this._duration);
+         const t = this._duration > 0 ? Math.min(1, elapsed / this._duration) : 1;
          const easedT = this._easing(t);
 
          this._currentMs = lerp(this._fromMs, this._toMs, easedT);
          this._currentSpanMs = logLerp(this._fromSpanMs, this._toSpanMs, easedT);
+         this._currentFades = lerpFades(this._fromFades, this._toState.fades, easedT);
 
          const timestamp = msToPlainDateTime(this._currentMs);
-         this._onFrame({ timestamp, spanMs: this._currentSpanMs, t: easedT });
+         this._onFrame({ timestamp, spanMs: this._currentSpanMs, t: easedT, fades: this._currentFades });
 
          if(t >= 1) {
             this._rafId = null;
-            this._onComplete({ timestamp: this._toState.timestamp, spanMs: this._toState.spanMs });
+            this._onComplete({ timestamp: this._toState.timestamp, spanMs: this._toState.spanMs, fades: this._toState.fades || {} });
             return;
          }
 
@@ -156,6 +176,7 @@ export class AnimationController {
       return {
          timestamp: msToPlainDateTime(this._currentMs),
          spanMs: this._currentSpanMs,
+         fades: this._currentFades || {},
       };
    }
 

@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Defines how the ticker animates between slides, covering position and span interpolation, easing, duration, and interruption.
+
+## Requirements
 
 ### Requirement: Simultaneous position and span interpolation
 On every slide change between two temporal slides, the plugin SHALL animate the ticker by simultaneously interpolating the center timestamp (linear) and the visible span (logarithmic) from the outgoing slide's values to the incoming slide's values.

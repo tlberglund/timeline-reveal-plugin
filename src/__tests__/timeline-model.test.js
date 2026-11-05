@@ -205,24 +205,142 @@ describe('buildTimelineModel', () => {
       expect(model.maxTimestamp).toBeNull();
    });
 
-   it('stores epochIds on each entry from data-epoch attribute', () => {
-      const slide = { dataset: { timestamp: '2000', span: undefined, epoch: 'ai ml' } };
-      const config = { ...DEFAULT_CONFIG, epochs: [{ id: 'ai', label: 'AI', color: '#f00', start: '1950', end: '2000' }, { id: 'ml', label: 'ML', color: '#0f0', start: '1980', end: '2020' }] };
-      const model = buildTimelineModel([slide], config);
+   const EPOCHS = [
+      { id: 'ai', label: 'AI', start: '1950', end: '2000' },
+      { id: 'ml', label: 'ML', start: '1980', end: '2020' },
+   ];
+
+   it('derives epochIds from the slide timestamp in config order', () => {
+      const config = { ...DEFAULT_CONFIG, epochs: EPOCHS };
+      const model = buildTimelineModel([makeSlide('1990', undefined)], config);
       expect(model.entries[0].epochIds).toEqual(['ai', 'ml']);
    });
 
-   it('stores empty epochIds when data-epoch is absent', () => {
-      const slides = [makeSlide('2000', undefined)];
-      const model = buildTimelineModel(slides, DEFAULT_CONFIG);
-      expect(model.entries[0].epochIds).toEqual([]);
+   it('treats the epoch end year as inclusive', () => {
+      const config = { ...DEFAULT_CONFIG, epochs: EPOCHS };
+      const model = buildTimelineModel([makeSlide('2000-12-31', undefined)], config);
+      expect(model.entries[0].epochIds).toEqual(['ai', 'ml']);
    });
 
-   it('warns and excludes unknown epoch ids from epochIds', () => {
-      const slide = { dataset: { timestamp: '2000', span: undefined, epoch: 'unknown' } };
-      const model = buildTimelineModel([slide], DEFAULT_CONFIG);
+   it('excludes a slide at the exclusive end bound', () => {
+      const config = { ...DEFAULT_CONFIG, epochs: EPOCHS };
+      const model = buildTimelineModel([makeSlide('2001-01-01', undefined)], config);
+      expect(model.entries[0].epochIds).toEqual(['ml']);
+   });
+
+   it('includes a slide at the inclusive start bound', () => {
+      const config = { ...DEFAULT_CONFIG, epochs: [{ id: 'ww1', label: 'WW1', start: '1914-07-28', end: '1918-11-11' }] };
+      const model = buildTimelineModel([makeSlide('1914-07-28', undefined)], config);
+      expect(model.entries[0].epochIds).toEqual(['ww1']);
+   });
+
+   it('stores empty epochIds for slides outside all epochs and non-temporal slides', () => {
+      const config = { ...DEFAULT_CONFIG, epochs: EPOCHS };
+      const model = buildTimelineModel([makeSlide('1800', undefined), makeSlide(undefined, undefined)], config);
       expect(model.entries[0].epochIds).toEqual([]);
+      expect(model.entries[1].epochIds).toEqual([]);
+   });
+
+   it('ignores data-epoch and warns exactly once', () => {
+      const config = { ...DEFAULT_CONFIG, epochs: EPOCHS };
+      const slides = [
+         { dataset: { timestamp: '1800', epoch: 'ai' } },
+         { dataset: { timestamp: '1990', epoch: 'ai' } },
+         { dataset: { timestamp: '1995', epoch: 'ml' } },
+      ];
+      const model = buildTimelineModel(slides, config);
+      expect(model.entries[0].epochIds).toEqual([]);
+      const dataEpochWarnings = warnSpy.mock.calls.filter(c => String(c[0]).includes('data-epoch'));
+      expect(dataEpochWarnings).toHaveLength(1);
+   });
+});
+
+describe('buildTimelineModel overview slides', () => {
+   let warnSpy;
+
+   beforeEach(() => {
+      warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+   });
+
+   afterEach(() => {
+      warnSpy.mockRestore();
+   });
+
+   const EPOCHS = [
+      { id: 'modern', label: 'Modern', start: '1750', end: '2010' },
+      { id: 'wars', label: 'Wars', start: '1914', end: '1945' },
+   ];
+
+   it('resolves an explicit range to center and span', () => {
+      const slide = { dataset: { timestampStart: '1700', timestampEnd: '1999' } };
+      const model = buildTimelineModel([slide], { ...DEFAULT_CONFIG, epochs: EPOCHS });
+      const entry = model.entries[0];
+      expect(entry.overview).toBe(true);
+      expect(entry.temporal).toBe(false);
+      expect(entry.timestamp).toBeNull();
+      expect(entry.rangeStart.toString()).toBe('1700-01-01T00:00:00');
+      expect(entry.rangeEnd.toString()).toBe('2000-01-01T00:00:00');
+      expect(entry.rangeEndAuthored.year).toBe(1999);
+      expect(entry.center.year).toBe(1850);
+      expect(entry.spanMs).toBeCloseTo(300 * 365.2425 * 86400000, -10);
+      expect(entry.epochIds).toEqual(['modern', 'wars']);
+   });
+
+   it('auto-fits data-overview to all epochs with 5% padding', () => {
+      const slide = { dataset: { overview: '' } };
+      const model = buildTimelineModel([slide], { ...DEFAULT_CONFIG, epochs: EPOCHS });
+      const entry = model.entries[0];
+      expect(entry.overview).toBe(true);
+      expect(entry.rangeStart.year).toBe(1750);
+      expect(entry.rangeEnd.year).toBe(2011);
+      expect(entry.rangeEndAuthored.year).toBe(2010);
+      expect(entry.spanMs).toBeCloseTo(261 * 365.2425 * 86400000 * 1.1, -10);
+   });
+
+   it('prefers an explicit range over data-overview', () => {
+      const slide = { dataset: { overview: '', timestampStart: '1900', timestampEnd: '1999' } };
+      const model = buildTimelineModel([slide], { ...DEFAULT_CONFIG, epochs: EPOCHS });
+      expect(model.entries[0].rangeStart.year).toBe(1900);
+   });
+
+   it('treats data-overview with no epochs as non-temporal and warns', () => {
+      const slide = { dataset: { overview: '' } };
+      const model = buildTimelineModel([slide], DEFAULT_CONFIG);
+      expect(model.entries[0].overview).toBe(false);
+      expect(model.entries[0].temporal).toBe(false);
       expect(warnSpy).toHaveBeenCalled();
+   });
+
+   it.each([
+      ['missing end', { timestampStart: '1700' }],
+      ['missing start', { timestampEnd: '1700' }],
+      ['unparseable', { timestampStart: 'soon', timestampEnd: '1999' }],
+      ['inverted', { timestampStart: '1999', timestampEnd: '1700' }],
+   ])('treats a %s range as non-temporal and warns', (_, dataset) => {
+      const model = buildTimelineModel([{ dataset }], { ...DEFAULT_CONFIG, epochs: EPOCHS });
+      expect(model.entries[0].overview).toBe(false);
+      expect(model.entries[0].temporal).toBe(false);
+      expect(warnSpy).toHaveBeenCalled();
+   });
+
+   it('ignores data-timestamp on an overview slide with a warning', () => {
+      const slide = { dataset: { timestamp: '1500', timestampStart: '1700', timestampEnd: '1999' } };
+      const model = buildTimelineModel([slide], { ...DEFAULT_CONFIG, epochs: EPOCHS });
+      expect(model.entries[0].overview).toBe(true);
+      expect(model.entries[0].timestamp).toBeNull();
+      expect(warnSpy).toHaveBeenCalled();
+   });
+
+   it('excludes overview slides from temporalEntries and extents', () => {
+      const slides = [
+         { dataset: { timestampStart: '1700', timestampEnd: '1999' } },
+         makeSlide('1800', undefined),
+         makeSlide('1900', undefined),
+         makeSlide('1950', undefined),
+      ];
+      const model = buildTimelineModel(slides, { ...DEFAULT_CONFIG, epochs: EPOCHS });
+      expect(model.temporalEntries).toHaveLength(3);
+      expect(model.minTimestamp.year).toBe(1800);
    });
 });
 
@@ -247,7 +365,39 @@ describe('buildEpochModel', () => {
       const epochs = buildEpochModel(config);
       expect(epochs).toHaveLength(1);
       expect(epochs[0].startTimestamp.year).toBe(1956);
-      expect(epochs[0].endTimestamp.year).toBe(2030);
+      expect(epochs[0].endTimestamp.toString()).toBe('2031-01-01T00:00:00');
+      expect(epochs[0].endAuthored.year).toBe(2030);
+   });
+
+   it.each([
+      ['1945', '1946-01-01T00:00:00'],
+      ['1945-08', '1945-09-01T00:00:00'],
+      ['1945-09-02', '1945-09-03T00:00:00'],
+      ['1969-07-20T20:17:40', '1969-07-20T20:17:41'],
+      ['-000044', '-000043-01-01T00:00:00'],
+   ])('resolves end %s to exclusive bound %s', (end, expected) => {
+      const epochs = buildEpochModel({ epochs: [{ id: 'x', label: 'X', start: '-000100', end }] });
+      expect(epochs[0].endTimestamp.toString()).toBe(expected);
+   });
+
+   it('stores null color when none is configured', () => {
+      const epochs = buildEpochModel({ epochs: [{ id: 'x', label: 'X', start: '1900', end: '1950' }] });
+      expect(epochs[0].color).toBeNull();
+   });
+
+   it('skips and warns on inverted bounds', () => {
+      const epochs = buildEpochModel({ epochs: [{ id: 'x', label: 'X', start: '1950', end: '1900' }] });
+      expect(epochs).toHaveLength(0);
+      expect(warnSpy).toHaveBeenCalled();
+   });
+
+   it('assigns contiguous lanes when an invalid epoch is dropped', () => {
+      const epochs = buildEpochModel({ epochs: [
+         { id: 'a', label: 'A', start: '1900', end: '1950' },
+         { id: 'bad', label: 'Bad', start: 'nope', end: '1950' },
+         { id: 'c', label: 'C', start: '1900', end: '1950' },
+      ] });
+      expect(epochs.map(e => [e.id, e.lane])).toEqual([['a', 0], ['c', 1]]);
    });
 
    it('assigns lane index matching config array order', () => {

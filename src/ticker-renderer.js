@@ -22,6 +22,10 @@ const DEFAULT_TICK_INTERVAL = { unit: 'year', value: 500 };
 const EPOCH_LANE_HEIGHT = 14;
 const AXIS_BOTTOM_MARGIN = 14;
 
+export function epochZoneHeight(epochCount) {
+   return epochCount * EPOCH_LANE_HEIGHT;
+}
+
 const CSS = `
 @layer reveal-timeline {
   :root {
@@ -36,7 +40,11 @@ const CSS = `
     --tl-line-width: 1;
     --tl-center-line-width: 2;
     --tl-epoch-label-color: rgba(255,255,255,0.9);
+    --tl-epoch-color: rgba(255,255,255,0.35);
+    --tl-epoch-line-width: 3px;
   }
+  .tl-epoch-bar { fill: var(--tl-epoch-color); }
+  .tl-epoch-line { stroke: var(--tl-epoch-color); stroke-width: var(--tl-epoch-line-width); }
   .tl-ticker {
     position: absolute;
     left: 0;
@@ -120,7 +128,7 @@ export function injectStyles() {
  * Creates the SVG ticker element and appends it to revealEl.
  * Returns the SVG element.
  */
-export function injectTicker(revealEl, config) {
+export function injectTicker(revealEl, config, epochCount = 0) {
    injectStyles();
 
    const svg = document.createElementNS(SVG_NS, 'svg');
@@ -162,9 +170,14 @@ export function injectTicker(revealEl, config) {
    centerGroup.setAttribute('class', 'tl-center');
    svg.appendChild(centerGroup);
 
+   // Overview range edge labels
+   const rangeGroup = document.createElementNS(SVG_NS, 'g');
+   rangeGroup.setAttribute('class', 'tl-range');
+   svg.appendChild(rangeGroup);
+
    revealEl.appendChild(svg);
 
-   positionTicker(svg, config);
+   positionTicker(svg, config, epochCount);
 
    return svg;
 }
@@ -174,8 +187,8 @@ export function injectTicker(revealEl, config) {
 /**
  * Applies height and position classes to the SVG ticker.
  */
-export function positionTicker(svg, config) {
-   svg.style.height = config.height + 'px';
+export function positionTicker(svg, config, epochCount = 0) {
+   svg.style.height = (config.height + epochZoneHeight(epochCount)) + 'px';
    svg.classList.remove('tl-position-top', 'tl-position-bottom');
    if(config.position === 'top') {
       svg.classList.add('tl-position-top');
@@ -467,17 +480,30 @@ export function renderTicker(svgElement, state, model, config) {
    const height = config.height;
 
    const { centerTimestamp, precision, spanMs, activeLayer, layerOpacity } = state;
+   const fades = state.fades || {};
+   const overviewOpacity = fades.overview || 0;
 
    const epochs = model.epochs || [];
-   const epochZoneHeight = epochs.length * EPOCH_LANE_HEIGHT;
-   const axisY = height - AXIS_BOTTOM_MARGIN - epochZoneHeight;
+   const zoneHeight = epochZoneHeight(epochs.length);
+   const lineStyle = config.epochStyle === 'line';
+
+   // The base band (labels, axis, center marker) is always config.height tall.
+   // Line-style epochs sit above it; bar-style epochs sit below it.
+   const baseTop = lineStyle ? zoneHeight : 0;
+   const axisY = baseTop + height - AXIS_BOTTOM_MARGIN;
 
    const ticks = computeTicks(centerTimestamp, spanMs, width, config.eraSuffix);
 
-   // ── Epoch bars ─────────────────────────────────────────────────────────────
+   // ── Epochs ─────────────────────────────────────────────────────────────────
    const epochsGroup = svgElement.querySelector('.tl-epochs');
    if(epochsGroup) {
-      renderEpochBars(epochsGroup, epochs, centerTimestamp, spanMs, width, axisY);
+      const view = { centerTimestamp, spanMs, svgWidth: width };
+      if(lineStyle) {
+         renderEpochLines(epochsGroup, epochs, view, fades, 0);
+      }
+      else {
+         renderEpochBars(epochsGroup, epochs, view, fades, baseTop + height);
+      }
    }
 
    // ── Axis line ──────────────────────────────────────────────────────────────
@@ -529,73 +555,217 @@ export function renderTicker(svgElement, state, model, config) {
    // ── Center marker ─────────────────────────────────────────────────────────
    const centerGroup = svgElement.querySelector('.tl-center');
    if(centerGroup) {
-      renderCenterMarker(centerGroup, width, axisY, centerTimestamp, precision, config);
+      renderCenterMarker(centerGroup, width, axisY, centerTimestamp, precision, config, baseTop);
+      centerGroup.setAttribute('opacity', String(1 - overviewOpacity));
+   }
+
+   // ── Overview range edge labels ────────────────────────────────────────────
+   const rangeGroup = svgElement.querySelector('.tl-range');
+   if(rangeGroup) {
+      renderRangeLabels(rangeGroup, state.range, width, baseTop, overviewOpacity, config);
    }
 }
 
-// ─── Epoch Bars ───────────────────────────────────────────────────────────────
+// ─── Range Edge Labels ────────────────────────────────────────────────────────
 
-const EPOCH_LABEL_MIN_WIDTH = 40;
-const EPOCH_LABEL_PADDING = 6;
+const RANGE_LABEL_PADDING = 6;
 
-function renderEpochBars(group, epochs, centerTimestamp, spanMs, svgWidth, axisY) {
+function renderRangeLabels(group, range, svgWidth, baseTop, opacity, config) {
    clearGroup(group);
+   group.setAttribute('opacity', String(opacity));
 
-   if(!epochs || epochs.length === 0) {
+   if(!range || opacity <= 0) {
       return;
    }
 
+   const edges = [
+      { x: RANGE_LABEL_PADDING, anchor: 'start', text: formatCenterLabel(range.start, range.startPrecision, config.eraSuffix) },
+      { x: svgWidth - RANGE_LABEL_PADDING, anchor: 'end', text: formatCenterLabel(range.end, range.endPrecision, config.eraSuffix) },
+   ];
+
+   for(const edge of edges) {
+      const text = svgEl('text', {
+         class: 'tl-range-label',
+         x: edge.x,
+         y: baseTop + 3,
+         'text-anchor': edge.anchor,
+         'dominant-baseline': 'hanging',
+         fill: 'var(--tl-center-color)',
+         'font-size': 'var(--tl-font-size)',
+         'font-weight': 'bold',
+      });
+      text.textContent = edge.text;
+      group.appendChild(text);
+   }
+}
+
+// ─── Epochs ───────────────────────────────────────────────────────────────────
+
+const EPOCH_LABEL_MIN_WIDTH = 40;
+const EPOCH_LABEL_PADDING = 6;
+const EPOCH_LABEL_GAP = 4;
+const EPOCH_MIN_LINE = 12;
+const EPOCH_MIN_OPACITY = 0.001;
+
+/**
+ * Computes the on-screen geometry of every epoch that is visible (opacity > 0)
+ * and intersects the viewport.
+ */
+function visibleEpochs(epochs, view, fades) {
+   const { centerTimestamp, spanMs, svgWidth } = view;
    const centerMs = plainDateTimeToMs(centerTimestamp);
    const centerX = svgWidth / 2;
+   const result = [];
 
-   for(const epoch of epochs) {
-      const startMs = plainDateTimeToMs(epoch.startTimestamp);
-      const endMs = plainDateTimeToMs(epoch.endTimestamp);
+   for(const epoch of epochs || []) {
+      const opacity = fades['epoch:' + epoch.id] || 0;
+      if(opacity < EPOCH_MIN_OPACITY) {
+         continue;
+      }
 
-      const startX = centerX + (startMs - centerMs) / spanMs * svgWidth;
-      const endX = centerX + (endMs - centerMs) / spanMs * svgWidth;
+      const startX = centerX + (plainDateTimeToMs(epoch.startTimestamp) - centerMs) / spanMs * svgWidth;
+      const endX = centerX + (plainDateTimeToMs(epoch.endTimestamp) - centerMs) / spanMs * svgWidth;
 
-      // Skip if entirely off-screen
       if(endX <= 0 || startX >= svgWidth) {
          continue;
       }
 
-      const rectX = Math.max(startX, 0);
-      const rectWidth = Math.min(endX, svgWidth) - rectX;
+      result.push({
+         epoch,
+         opacity,
+         startX,
+         endX,
+         visStart: Math.max(startX, 0),
+         visEnd: Math.min(endX, svgWidth),
+      });
+   }
 
-      if(rectWidth <= 0) {
-         continue;
-      }
+   return result;
+}
 
-      const barY = axisY + AXIS_BOTTOM_MARGIN + epoch.lane * EPOCH_LANE_HEIGHT;
+function epochElementAttrs(epoch, className, opacity) {
+   const attrs = {
+      class: `${className} tl-epoch-${epoch.id}`,
+      opacity: String(opacity),
+   };
+   if(epoch.color) {
+      attrs.style = `--tl-epoch-color: ${epoch.color}`;
+   }
+   return attrs;
+}
+
+function makeEpochLabel(epoch, x, y, opacity) {
+   const text = svgEl('text', {
+      class: 'tl-epoch-label',
+      x,
+      y,
+      'dominant-baseline': 'middle',
+      fill: 'var(--tl-epoch-label-color)',
+      'font-size': 'var(--tl-font-size)',
+      opacity: String(opacity),
+   });
+   text.textContent = epoch.label;
+   return text;
+}
+
+function renderEpochBars(group, epochs, view, fades, zoneTop) {
+   clearGroup(group);
+
+   for(const v of visibleEpochs(epochs, view, fades)) {
+      const { epoch, opacity, startX, visStart, visEnd } = v;
+      const barY = zoneTop + epoch.lane * EPOCH_LANE_HEIGHT;
 
       const rect = svgEl('rect', {
-         class: 'tl-epoch-bar',
-         x: rectX,
+         ...epochElementAttrs(epoch, 'tl-epoch-bar', opacity),
+         x: visStart,
          y: barY,
-         width: rectWidth,
+         width: visEnd - visStart,
          height: EPOCH_LANE_HEIGHT,
-         fill: epoch.color,
       });
       group.appendChild(rect);
 
-      // Pinned label
+      // Label pinned to the left edge of the visible part of the bar
       const labelX = Math.max(startX, 0) + EPOCH_LABEL_PADDING;
-      const visibleRight = Math.min(endX, svgWidth) - EPOCH_LABEL_PADDING;
+      const visibleRight = visEnd - EPOCH_LABEL_PADDING;
 
       if(visibleRight - labelX >= EPOCH_LABEL_MIN_WIDTH) {
-         const labelY = barY + EPOCH_LANE_HEIGHT / 2;
-         const text = svgEl('text', {
-            class: 'tl-epoch-label',
-            x: labelX,
-            y: labelY,
-            'dominant-baseline': 'middle',
-            fill: 'var(--tl-epoch-label-color)',
-            'font-size': 'var(--tl-font-size)',
-         });
-         text.textContent = epoch.label;
-         group.appendChild(text);
+         group.appendChild(makeEpochLabel(epoch, labelX, barY + EPOCH_LANE_HEIGHT / 2, opacity));
       }
+   }
+}
+
+// Label widths are static per epoch, so they are measured once and cached.
+const epochLabelWidths = new Map();
+
+export function resetEpochLabelCache() {
+   epochLabelWidths.clear();
+}
+
+function measureLabel(text, id) {
+   if(epochLabelWidths.has(id)) {
+      return epochLabelWidths.get(id);
+   }
+   let width = 0;
+   try {
+      width = text.getComputedTextLength();
+   }
+   catch(e) {
+      width = 0;
+   }
+   // A zero width means the ticker isn't laid out yet (e.g. hidden); measure again later.
+   if(width > 0) {
+      epochLabelWidths.set(id, width);
+   }
+   return width;
+}
+
+/**
+ * Places a line-style label to the left of the line's start, or pins it to the
+ * left edge (pushing the line's start to the right of it) when there is no room.
+ * Returns { labelX, lineStart }, with labelX null when the label is dropped.
+ */
+export function layoutEpochLine(startX, visStart, visEnd, labelWidth) {
+   if(labelWidth <= 0) {
+      return { labelX: null, lineStart: visStart };
+   }
+   const wanted = startX - EPOCH_LABEL_GAP - labelWidth;
+   if(wanted >= EPOCH_LABEL_PADDING) {
+      return { labelX: wanted, lineStart: visStart };
+   }
+   const pinnedLineStart = EPOCH_LABEL_PADDING + labelWidth + EPOCH_LABEL_GAP;
+   if(visEnd - pinnedLineStart < EPOCH_MIN_LINE) {
+      return { labelX: null, lineStart: visStart };
+   }
+   return { labelX: EPOCH_LABEL_PADDING, lineStart: Math.max(pinnedLineStart, visStart) };
+}
+
+function renderEpochLines(group, epochs, view, fades, zoneTop) {
+   clearGroup(group);
+
+   for(const v of visibleEpochs(epochs, view, fades)) {
+      const { epoch, opacity, startX, visStart, visEnd } = v;
+      const laneY = zoneTop + epoch.lane * EPOCH_LANE_HEIGHT + EPOCH_LANE_HEIGHT / 2;
+
+      // The label must be in the DOM to be measured; it is positioned afterward.
+      const label = makeEpochLabel(epoch, 0, laneY, opacity);
+      group.appendChild(label);
+      const { labelX, lineStart } = layoutEpochLine(startX, visStart, visEnd, measureLabel(label, epoch.id));
+
+      if(labelX === null) {
+         group.removeChild(label);
+      }
+      else {
+         label.setAttribute('x', labelX);
+      }
+
+      const line = svgEl('line', {
+         ...epochElementAttrs(epoch, 'tl-epoch-line', opacity),
+         x1: lineStart,
+         y1: laneY,
+         x2: visEnd,
+         y2: laneY,
+      });
+      group.appendChild(line);
    }
 }
 
@@ -655,7 +825,7 @@ function renderTickLabels(group, ticks, axisY, opacity, centerX) {
 /**
  * Renders the center marker: a vertical line + optional label.
  */
-export function renderCenterMarker(centerGroup, svgWidth, axisY, centerTimestamp, precision, config) {
+export function renderCenterMarker(centerGroup, svgWidth, axisY, centerTimestamp, precision, config, baseTop = 0) {
    clearGroup(centerGroup);
 
    const cx = svgWidth / 2;
@@ -667,7 +837,7 @@ export function renderCenterMarker(centerGroup, svgWidth, axisY, centerTimestamp
       const text = svgEl('text', {
          class: 'tl-center-label',
          x: cx,
-         y: 3,
+         y: baseTop + 3,
          'text-anchor': 'middle',
          'dominant-baseline': 'hanging',
          fill: 'var(--tl-center-color)',
@@ -680,7 +850,7 @@ export function renderCenterMarker(centerGroup, svgWidth, axisY, centerTimestamp
 
    // Vertical line from below label to just above diamond
    const diamondSize = 5;
-   const lineTop = config.centerLabel ? config.centerLineTop : 0;
+   const lineTop = baseTop + (config.centerLabel ? config.centerLineTop : 0);
    const line = svgEl('line', {
       class: 'tl-center-line',
       x1: cx, y1: lineTop,

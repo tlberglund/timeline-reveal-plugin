@@ -7,6 +7,7 @@ export const DEFAULT_CONFIG = {
    labelFormat: 'auto',
    noTimestamp: 'fade',
    epochs: [],
+   epochStyle: 'bar',
    animation: {
       duration: 600,
       easing: 'ease-in-out',
@@ -37,6 +38,11 @@ export function resolveConfig(userConfig) {
    merged.epochs = Array.isArray(userConfig.epochs)
       ? userConfig.epochs.map(e => ({ ...e }))
       : [];
+
+   if(merged.epochStyle !== 'bar' && merged.epochStyle !== 'line') {
+      console.warn('resolveConfig: invalid epochStyle', merged.epochStyle, "; falling back to 'bar'");
+      merged.epochStyle = 'bar';
+   }
 
    return merged;
 }
