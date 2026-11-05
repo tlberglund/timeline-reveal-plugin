@@ -346,3 +346,73 @@ npm run build:iife
 ```
 
 Output goes to `dist/reveal-timeline-plugin.iife.js` with `RevealTimeline` as the global name.
+
+## Releasing
+
+Releases are published to npm from a clean `main`. `dist/` is not committed: the `prepublishOnly` script runs all three builds (`build`, `build:iife`, `build:iife:min`) during `npm publish`, so the published bundles always match the source.
+
+### 1. Pick the version
+
+Follow [semver](https://semver.org/). While the package is on `0.x`, a breaking change bumps the minor version (`0.1.0` → `0.2.0`), and anything else bumps the patch version (`0.2.0` → `0.2.1`). If the release breaks anything, add an "Upgrading from …" section to this README.
+
+### 2. Check that `main` is ready
+
+```sh
+git switch main
+git pull
+npm ci
+npm test
+```
+
+Open `demo/index.html` after `npm run build:iife` and click through the deck.
+
+### 3. Bump the version and commit
+
+```sh
+npm version 0.2.0 --no-git-tag-version   # updates package.json and package-lock.json
+```
+
+Update the version badge at the top of this README to match, then commit and tag:
+
+```sh
+git commit -am "Release 0.2.0"
+git tag v0.2.0
+```
+
+### 4. Check the package contents
+
+```sh
+npm pack --dry-run
+```
+
+The list should contain only `dist/` files, `README.md`, `LICENSE` and `package.json`, with the new version number.
+
+### 5. Publish
+
+```sh
+npm whoami        # confirm you're logged in as a maintainer (otherwise: npm login)
+npm publish
+```
+
+`npm publish` builds `dist/` first. If your npm account uses two-factor authentication, it prompts for a one-time code.
+
+### 6. Push the commit and tag
+
+```sh
+git push origin main
+git push origin v0.2.0
+```
+
+### 7. Verify
+
+```sh
+npm view reveal-timeline-plugin version
+```
+
+It should print the new version. The jsDelivr URL in [From a CDN](#from-a-cdn) points at the latest version, which jsDelivr may cache for a while before serving the new release. To test right away, use a pinned URL such as `https://cdn.jsdelivr.net/npm/reveal-timeline-plugin@0.2.0/dist/reveal-timeline-plugin.iife.js`.
+
+Optionally, create a GitHub release from the tag:
+
+```sh
+gh release create v0.2.0 --generate-notes
+```
