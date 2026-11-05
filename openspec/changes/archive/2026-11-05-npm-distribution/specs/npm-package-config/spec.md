@@ -1,3 +1,7 @@
+## Purpose
+
+Defines how the plugin is packaged for npm: registry metadata, entry points, published files, peer dependencies, and the pre-publish build.
+
 ## ADDED Requirements
 
 ### Requirement: Package metadata fields
